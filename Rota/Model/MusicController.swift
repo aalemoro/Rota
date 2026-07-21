@@ -17,12 +17,16 @@ import WidgetKit
 final class MusicController: ObservableObject {
 
     enum Screen { case nowPlaying, library }
+    /// The overall look of the main window: the glass mini-player, or the
+    /// classic iPod click wheel.
+    enum Style { case player, wheel }
 
     // MARK: Published UI state
     @Published var authorization: MusicAuthorization.Status = MusicAuthorization.currentStatus
     @Published var songs: [Song] = []
     @Published var selection: Int = 0            // highlighted row in the library list
     @Published var screen: Screen = .nowPlaying
+    @Published var style: Style = .player
     @Published var nowPlaying: NowPlayingSnapshot = SnapshotStore.read()
     @Published var isLoadingLibrary = false
     @Published var lastError: String?
@@ -107,6 +111,8 @@ final class MusicController: ObservableObject {
     func next() async            { await PlaybackEngine.next();            await tick() }
     func previous() async        { await PlaybackEngine.previous();        await tick() }
     func seek(to fraction: Double) async { await PlaybackEngine.seek(toFraction: fraction); await tick() }
+    func toggleShuffle() async   { await PlaybackEngine.toggleShuffle();   await tick() }
+    func cycleRepeat() async     { await PlaybackEngine.cycleRepeat();     await tick() }
 
     // MARK: Click-wheel navigation
 

@@ -55,7 +55,7 @@ private struct SmallWidget: View {
             Spacer(minLength: 0)
             HStack {
                 ProgressLine(progress: snapshot.progress)
-                TransportButton(kind: .playPause, isPlaying: snapshot.isPlaying, size: 30)
+                TransportButton(kind: .playPause, snapshot: snapshot, size: 30)
             }
         }
         .padding(12)
@@ -81,10 +81,16 @@ private struct MediumWidget: View {
                 }
                 Spacer(minLength: 2)
                 ProgressLine(progress: snapshot.progress)
-                HStack(spacing: 18) {
-                    TransportButton(kind: .previous, isPlaying: snapshot.isPlaying, size: 30)
-                    TransportButton(kind: .playPause, isPlaying: snapshot.isPlaying, size: 40)
-                    TransportButton(kind: .next, isPlaying: snapshot.isPlaying, size: 30)
+                HStack {
+                    TransportButton(kind: .shuffle, snapshot: snapshot, size: 22)
+                    Spacer()
+                    TransportButton(kind: .previous, snapshot: snapshot, size: 26)
+                    Spacer()
+                    TransportButton(kind: .playPause, snapshot: snapshot, size: 38)
+                    Spacer()
+                    TransportButton(kind: .next, snapshot: snapshot, size: 26)
+                    Spacer()
+                    TransportButton(kind: .repeatMode, snapshot: snapshot, size: 22)
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -111,12 +117,19 @@ private struct LargeWidget: View {
                 }
             }
             ProgressLine(progress: snapshot.progress)
-            HStack(spacing: 26) {
-                TransportButton(kind: .previous, isPlaying: snapshot.isPlaying, size: 34)
-                TransportButton(kind: .playPause, isPlaying: snapshot.isPlaying, size: 52)
-                TransportButton(kind: .next, isPlaying: snapshot.isPlaying, size: 34)
+            HStack {
+                TransportButton(kind: .shuffle, snapshot: snapshot, size: 24)
+                Spacer()
+                TransportButton(kind: .previous, snapshot: snapshot, size: 32)
+                Spacer()
+                TransportButton(kind: .playPause, snapshot: snapshot, size: 52)
+                Spacer()
+                TransportButton(kind: .next, snapshot: snapshot, size: 32)
+                Spacer()
+                TransportButton(kind: .repeatMode, snapshot: snapshot, size: 24)
             }
             .padding(.top, 2)
+            .padding(.horizontal, 4)
         }
         .padding(18)
         .foregroundStyle(.white)
@@ -154,20 +167,28 @@ private struct ProgressLine: View {
     let progress: Double
     var body: some View {
         GeometryReader { geo in
+            let filled = max(2, geo.size.width * CGFloat(progress))
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.18))
                 Capsule().fill(Color.rotaAccent)
-                    .frame(width: max(2, geo.size.width * progress))
+                    .frame(width: filled)
+                // Draggable-style knob marker
+                Circle()
+                    .fill(.white)
+                    .frame(width: 9, height: 9)
+                    .overlay(Circle().strokeBorder(Color.rotaAccent, lineWidth: 1.5))
+                    .shadow(color: Color.rotaAccent.opacity(0.6), radius: 2)
+                    .offset(x: filled - 4.5)
             }
         }
-        .frame(height: 4)
+        .frame(height: 9)
     }
 }
 
 private struct TransportButton: View {
-    enum Kind { case previous, playPause, next }
+    enum Kind { case shuffle, previous, playPause, next, repeatMode }
     let kind: Kind
-    let isPlaying: Bool
+    let snapshot: NowPlayingSnapshot
     let size: CGFloat
 
     var body: some View {
@@ -175,31 +196,53 @@ private struct TransportButton: View {
         // with its own intent type.
         Group {
             switch kind {
-            case .previous:
-                Button(intent: PreviousTrackIntent()) { label }
-            case .next:
-                Button(intent: NextTrackIntent()) { label }
-            case .playPause:
-                Button(intent: PlayPauseIntent()) { label }
+            case .shuffle:    Button(intent: ShuffleIntent()) { label }
+            case .previous:   Button(intent: PreviousTrackIntent()) { label }
+            case .playPause:  Button(intent: PlayPauseIntent()) { label }
+            case .next:       Button(intent: NextTrackIntent()) { label }
+            case .repeatMode: Button(intent: RepeatIntent()) { label }
             }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(kind == .playPause ? Color.rotaAccent : .white)
+        .foregroundStyle(tint)
     }
 
-    private var label: some View {
-        Image(systemName: symbol)
-            .font(.system(size: size * 0.42, weight: .semibold))
-            .frame(width: size, height: size)
-            .background(Circle().fill(.white.opacity(0.10)))
-            .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 1))
+    @ViewBuilder private var label: some View {
+        switch kind {
+        case .playPause:
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.42, weight: .semibold))
+                .frame(width: size, height: size)
+                .background(Circle().fill(.white.opacity(0.12)))
+                .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1))
+        default:
+            Image(systemName: symbol)
+                .font(.system(size: size * 0.72, weight: .semibold))
+                .frame(width: size, height: size)
+                .contentShape(Rectangle())
+        }
+    }
+
+    private var isActive: Bool {
+        switch kind {
+        case .shuffle:    return snapshot.shuffle
+        case .repeatMode: return snapshot.repeatState != .off
+        default:          return false
+        }
+    }
+
+    private var tint: Color {
+        if kind == .playPause { return Color.rotaAccent }
+        return isActive ? Color.rotaAccent : .white
     }
 
     private var symbol: String {
         switch kind {
-        case .previous:  return "backward.fill"
-        case .next:      return "forward.fill"
-        case .playPause: return isPlaying ? "pause.fill" : "play.fill"
+        case .shuffle:    return "shuffle"
+        case .previous:   return "backward.fill"
+        case .playPause:  return snapshot.isPlaying ? "pause.fill" : "play.fill"
+        case .next:       return "forward.fill"
+        case .repeatMode: return snapshot.repeatState == .one ? "repeat.1" : "repeat"
         }
     }
 }

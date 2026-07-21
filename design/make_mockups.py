@@ -95,11 +95,35 @@ def paste_rounded(base, img, box, radius, border=(255,255,255,30), shadow=True):
 def text(draw, pos, s, f, fill, anchor="la"):
     draw.text((pos[0]*1, pos[1]*1), s, font=f, fill=fill, anchor=anchor)
 
-def progress(draw, x, y, w, frac, h=4):
+def progress(draw, x, y, w, frac, h=4, knob=False):
     h*=SS
     draw.rounded_rectangle([x, y, x+w, y+h], radius=h//2, fill=(255,255,255,46))
     fw = max(2*SS, int(w*frac))
     draw.rounded_rectangle([x, y, x+fw, y+h], radius=h//2, fill=ACCENT)
+    if knob:
+        kx = x+fw
+        ky = y+h//2
+        kr = int(7*SS)
+        # glow
+        draw.ellipse([kx-kr-2*SS, ky-kr-2*SS, kx+kr+2*SS, ky+kr+2*SS], fill=(ACCENT[0],ACCENT[1],ACCENT[2],80))
+        draw.ellipse([kx-kr, ky-kr, kx+kr, ky+kr], fill=(250,250,252,255), outline=ACCENT, width=2*SS)
+
+def draw_shuffle(draw, cx, cy, s, col):
+    # two crossing arrows
+    w = 2*SS
+    draw.line([(cx-s, cy-s), (cx+s, cy+s)], fill=col, width=w)
+    draw.line([(cx-s, cy+s), (cx+s, cy-s)], fill=col, width=w)
+    for ex, ey in [(cx+s, cy+s), (cx+s, cy-s)]:
+        sy = -1 if ey<cy else 1
+        draw.polygon([(ex, ey), (ex-int(s*0.5), ey), (ex, ey-sy*int(s*0.5))], fill=col)
+
+def draw_repeat(draw, cx, cy, s, col, one=False):
+    w = 2*SS
+    draw.arc([cx-s, cy-s, cx+s, cy+s], 300, 210, fill=col, width=w)
+    # arrowhead at top-right
+    draw.polygon([(cx+s, cy-int(s*0.2)), (cx+int(s*0.4), cy-s), (cx+int(s*1.0), cy-s)], fill=col)
+    if one:
+        text(draw, (cx, cy+int(s*0.05)), "1", font(9, bold=True), col, "mm")
 
 # ---------------------------------------------------------------------------
 # APP WINDOW  (iPod)
@@ -234,17 +258,28 @@ def widget_bg(w, h, r):
     ImageDraw.Draw(out).rounded_rectangle([0,0,w-1,h-1],radius=r,outline=(255,255,255,24),width=SS)
     return out
 
-def transport(draw, cx, cy, kind, size, playing=True):
-    r = size//2
-    draw.ellipse([cx-r,cy-r,cx+r,cy+r], fill=(255,255,255,26), outline=(255,255,255,36), width=SS)
-    col = ACCENT if kind=="pp" else WHITE
+def transport(draw, cx, cy, kind, size, playing=True, active=False, circle=True):
     s = int(size*0.22)
+    if kind in ("shuffle", "repeat", "repeat1"):
+        col = ACCENT if active else WHITE
+        gs = int(size*0.34)
+        if kind=="shuffle":
+            draw_shuffle(draw, cx, cy, gs, col)
+        else:
+            draw_repeat(draw, cx, cy, gs, col, one=(kind=="repeat1"))
+        return
+    if circle:
+        r = size//2
+        draw.ellipse([cx-r,cy-r,cx+r,cy+r], fill=(255,255,255,26), outline=(255,255,255,36), width=SS)
+    col = ACCENT if kind=="pp" else WHITE
+    t = int(size*0.30)   # triangle half-height for skip glyphs
     if kind=="prev":
-        draw.polygon([(cx+s,cy-s),(cx-s,cy),(cx+s,cy+s)], fill=col)
-        draw.rectangle([cx-s-2*SS,cy-s,cx-s,cy+s], fill=col)
+        # double triangle (skip back)
+        draw.polygon([(cx,cy-t),(cx-t,cy),(cx,cy+t)], fill=col)
+        draw.polygon([(cx+t,cy-t),(cx,cy),(cx+t,cy+t)], fill=col)
     elif kind=="next":
-        draw.polygon([(cx-s,cy-s),(cx+s,cy),(cx-s,cy+s)], fill=col)
-        draw.rectangle([cx+s,cy-s,cx+s+2*SS,cy+s], fill=col)
+        draw.polygon([(cx,cy-t),(cx+t,cy),(cx,cy+t)], fill=col)
+        draw.polygon([(cx-t,cy-t),(cx,cy),(cx-t,cy+t)], fill=col)
     else:
         if playing:
             draw.rectangle([cx-s, cy-s, cx-2*SS, cy+s], fill=col)
@@ -260,7 +295,7 @@ def render_small():
     d=ImageDraw.Draw(c,"RGBA")
     text(d,(12*SS,78*SS),"Nightcall",font(12,bold=True),WHITE,"la")
     text(d,(12*SS,95*SS),"Kavinsky",font(10),SECON,"la")
-    progress(d,12*SS,h-30*SS,w-70*SS,0.6)
+    progress(d,12*SS,h-30*SS,w-70*SS,0.6,knob=True)
     transport(d,w-28*SS,h-26*SS,"pp",30*SS,True)
     c.resize((w//SS,h//SS),Image.LANCZOS).save("docs_out/widget_small.png")
     print("wrote widget_small")
@@ -271,15 +306,19 @@ def render_medium():
     paste_rounded(c,album_art(92*SS,2),(16*SS,16*SS,92*SS,92*SS),12*SS,border=(255,255,255,30),shadow=False)
     d=ImageDraw.Draw(c,"RGBA")
     tx=124*SS
-    text(d,(tx,22*SS),"Midnight City",font(15,bold=True),WHITE,"la")
-    text(d,(tx,44*SS),"M83",font(12),SECON,"la")
-    text(d,(tx,62*SS),"Hurry Up, We're Dreaming",font(11),TERT,"la")
-    progress(d,tx,104*SS,w-tx-18*SS,0.42)
-    cyb=h-34*SS
-    ccx=tx+(w-tx-18*SS)//2
-    transport(d,ccx-40*SS,cyb,"prev",30*SS)
-    transport(d,ccx,cyb,"pp",40*SS,True)
-    transport(d,ccx+40*SS,cyb,"next",30*SS)
+    text(d,(tx,20*SS),"Dancin (Krono Remix)",font(14,bold=True),WHITE,"la")
+    text(d,(tx,40*SS),"Aaron Smith · feat. Luvli",font(11),SECON,"la")
+    pw=w-tx-18*SS
+    progress(d,tx,72*SS,pw,0.2,knob=True)
+    cyb=h-32*SS
+    left=tx
+    right=w-18*SS
+    xs=[left, left+(right-left)*0.25, (left+right)/2, left+(right-left)*0.75, right]
+    transport(d,int(xs[0]),cyb,"shuffle",22*SS,active=False)
+    transport(d,int(xs[1]),cyb,"prev",26*SS,circle=False)
+    transport(d,int(xs[2]),cyb,"pp",34*SS,True,circle=False)
+    transport(d,int(xs[3]),cyb,"next",26*SS,circle=False)
+    transport(d,int(xs[4]),cyb,"repeat",22*SS,active=True)
     c.resize((w//SS,h//SS),Image.LANCZOS).save("docs_out/widget_medium.png")
     print("wrote widget_medium")
 
@@ -289,14 +328,17 @@ def render_large():
     paste_rounded(c,album_art(150*SS,0),((w-150*SS)//2,20*SS,150*SS,150*SS),16*SS,border=(255,255,255,30),shadow=False)
     d=ImageDraw.Draw(c,"RGBA")
     cx=w//2
-    text(d,(cx,186*SS),"Midnight City",font(17,bold=True),WHITE,"ma")
-    text(d,(cx,210*SS),"M83",font(13),SECON,"ma")
-    text(d,(cx,230*SS),"Hurry Up, We're Dreaming",font(12),TERT,"ma")
-    progress(d,30*SS,268*SS,w-60*SS,0.42)
-    cyb=316*SS
-    transport(d,cx-64*SS,cyb,"prev",34*SS)
-    transport(d,cx,cyb,"pp",52*SS,True)
-    transport(d,cx+64*SS,cyb,"next",34*SS)
+    text(d,(cx,186*SS),"Dancin (Krono Remix)",font(16,bold=True),WHITE,"ma")
+    text(d,(cx,209*SS),"Aaron Smith · feat. Luvli",font(12),SECON,"ma")
+    progress(d,30*SS,258*SS,w-60*SS,0.2,knob=True)
+    cyb=312*SS
+    left=40*SS; right=w-40*SS
+    xs=[left, left+(right-left)*0.25, (left+right)/2, left+(right-left)*0.75, right]
+    transport(d,int(xs[0]),cyb,"shuffle",24*SS,active=False)
+    transport(d,int(xs[1]),cyb,"prev",32*SS,circle=False)
+    transport(d,int(xs[2]),cyb,"pp",46*SS,True,circle=False)
+    transport(d,int(xs[3]),cyb,"next",32*SS,circle=False)
+    transport(d,int(xs[4]),cyb,"repeat",24*SS,active=True)
     c.resize((w//SS,h//SS),Image.LANCZOS).save("docs_out/widget_large.png")
     print("wrote widget_large")
 
@@ -318,7 +360,110 @@ def compose_widgets():
     bg.save("docs_out/widgets.png")
     print("wrote docs_out/widgets.png")
 
+def neon_text(base, s, cx, cy, f, glow_col, core=(255,255,255)):
+    """Draw glowing neon-style text centred at (cx,cy)."""
+    layer = Image.new("RGBA", base.size, (0,0,0,0))
+    dl = ImageDraw.Draw(layer)
+    dl.text((cx, cy), s, font=f, fill=(glow_col[0],glow_col[1],glow_col[2],255), anchor="mm")
+    glow = layer.filter(ImageFilter.GaussianBlur(6*SS))
+    base.alpha_composite(glow)
+    base.alpha_composite(glow)
+    d = ImageDraw.Draw(base)
+    d.text((cx, cy), s, font=f, fill=glow_col, anchor="mm")
+
+def neon_cover(size):
+    """A stylised neon album cover echoing the reference art."""
+    img = diag_grad(size, size, (46,20,30), (28,14,20)).convert("RGBA")
+    d = ImageDraw.Draw(img, "RGBA")
+    # warm vignette
+    for r in range(int(size*0.7), 0, -6):
+        a = int(40*(1-r/(size*0.7)))
+        d.ellipse([size*0.5-r, size*0.35-r, size*0.5+r, size*0.35+r], fill=(120,40,60,a))
+    img = img.filter(ImageFilter.GaussianBlur(size*0.01))
+    neon_text(img, "DANCIN", size*0.5, size*0.40, font(int(size*0.115), bold=True), (245,240,70))
+    neon_text(img, "KRONO REMIX", size*0.5, size*0.53, font(int(size*0.062), bold=True), (245,240,70))
+    neon_text(img, "AARON SMITH · FEAT LUVLI", size*0.5, size*0.64, font(int(size*0.038), bold=True), (232,72,212))
+    return img.convert("RGB")
+
+def traffic_lights(draw, x, y, r=6):
+    for i,col in enumerate([(255,95,86),(255,189,46),(39,201,63)]):
+        cx=x+i*(r*2+6*SS)
+        draw.ellipse([cx-r, y-r, cx+r, y+r], fill=col)
+
+def render_miniplayer():
+    W,H=340*SS,360*SS
+    canvas=Image.new("RGBA",(W,H),(0,0,0,0))
+    cover=neon_cover(W).resize((W,H),Image.LANCZOS).convert("RGBA")
+    m=rounded_mask(W,H,26*SS)
+    canvas.paste(cover,(0,0),m)
+    # glass scrim bottom
+    scrim=Image.new("RGBA",(W,H),(0,0,0,0))
+    sp=scrim.load()
+    for y in range(H):
+        t=y/(H-1)
+        a=int(255*max(0,(t-0.35))/0.65*0.86) if t>0.35 else 0
+        for x in range(W):
+            sp[x,y]=(0,0,0,a)
+    scrim2=Image.new("RGBA",(W,H),(0,0,0,0))
+    scrim2.paste(scrim,(0,0),m)
+    canvas.alpha_composite(scrim2)
+    d=ImageDraw.Draw(canvas,"RGBA")
+    # border
+    d.rounded_rectangle([0,0,W-1,H-1],radius=26*SS,outline=(255,255,255,36),width=SS)
+    # traffic lights
+    traffic_lights(d, 22*SS, 24*SS, r=6*SS)
+    # top-right glass buttons (dark translucent glass, white icons)
+    GLASS=(15,15,18,120); GLASS_B=(255,255,255,55)
+    by=24*SS; br=15*SS
+    # volume (far right circle)
+    vx=W-30*SS
+    d.ellipse([vx-br,by,vx+br,by+2*br], fill=GLASS, outline=GLASS_B, width=SS)
+    d.polygon([(vx-6*SS,by+br-4*SS),(vx-2*SS,by+br-4*SS),(vx+2*SS,by+br-8*SS),(vx+2*SS,by+br+8*SS),(vx-2*SS,by+br+4*SS),(vx-6*SS,by+br+4*SS)], fill=WHITE)
+    d.arc([vx+3*SS,by+br-7*SS,vx+11*SS,by+br+7*SS], -60,60, fill=WHITE, width=2*SS)
+    # lyrics + list pill
+    d.rounded_rectangle([W-118*SS, by, W-52*SS, by+2*br], radius=br, fill=GLASS, outline=GLASS_B, width=SS)
+    # lyrics quote bubble
+    qx=W-101*SS
+    d.rounded_rectangle([qx-8*SS, by+br-7*SS, qx+8*SS, by+br+4*SS], radius=3*SS, fill=WHITE)
+    d.polygon([(qx-4*SS,by+br+3*SS),(qx-4*SS,by+br+8*SS),(qx+1*SS,by+br+3*SS)], fill=WHITE)
+    d.text((qx-4*SS, by+br-6*SS), "”", font=font(10,bold=True), fill=GLASS[:3], anchor="lm")
+    # list icon
+    lx=W-77*SS
+    for i in range(3):
+        yy=by+br-6*SS+i*6*SS
+        d.line([(lx, yy),(lx+12*SS, yy)], fill=WHITE, width=2*SS)
+        d.ellipse([lx-6*SS, yy-2*SS, lx-2*SS, yy+2*SS], fill=WHITE)
+    # title / artist (marquee-like)
+    ty=H-116*SS
+    text(d,(20*SS, ty),"Dancin (Krono Remix)",font(15,bold=True),WHITE,"la")
+    text(d,(20*SS, ty+22*SS),"Aaron Smith · feat. Luvli",font(11),(225,225,230),"la")
+    # star + ...
+    for i,(gx,gl) in enumerate([(W-58*SS,"★"),(W-26*SS,"···")]):
+        d.ellipse([gx-13*SS, ty+2*SS, gx+13*SS, ty+28*SS], fill=GLASS, outline=GLASS_B, width=SS)
+        text(d,(gx, ty+15*SS - (3*SS if gl=="···" else 0)), gl, font(11,bold=True), WHITE, "mm")
+    # progress with knob
+    py=H-70*SS
+    progress(d, 20*SS, py, W-40*SS, 0.09, knob=True)
+    text(d,(20*SS, py+12*SS),"0:17",font(9,mono=True),(215,215,220),"la")
+    text(d,(W-20*SS, py+12*SS),"-3:01",font(9,mono=True),(215,215,220),"ra")
+    # transport row — plain white glyphs, no circles (matches reference)
+    cyb=H-32*SS
+    left=32*SS; right=W-32*SS
+    xs=[left, left+(right-left)*0.25, (left+right)/2, left+(right-left)*0.75, right]
+    transport(d,int(xs[0]),cyb,"shuffle",22*SS,active=False)
+    transport(d,int(xs[1]),cyb,"prev",26*SS,circle=False)
+    # plain pause glyph, larger
+    d.rectangle([int(xs[2])-9*SS, cyb-13*SS, int(xs[2])-2*SS, cyb+13*SS], fill=WHITE)
+    d.rectangle([int(xs[2])+2*SS, cyb-13*SS, int(xs[2])+9*SS, cyb+13*SS], fill=WHITE)
+    transport(d,int(xs[3]),cyb,"next",26*SS,circle=False)
+    transport(d,int(xs[4]),cyb,"repeat",22*SS,active=False)
+
+    out=canvas.resize((W//SS,H//SS),Image.LANCZOS)
+    out.save("docs_out/mini_player.png")
+    print("wrote docs_out/mini_player.png")
+
 render_app()
+render_miniplayer()
 render_small()
 render_medium()
 render_large()

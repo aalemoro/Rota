@@ -66,6 +66,21 @@ enum PlaybackEngine {
         await refreshSnapshot()
     }
 
+    static func toggleShuffle() async {
+        player.state.shuffleMode = (player.state.shuffleMode == .songs) ? .off : .songs
+        await refreshSnapshot()
+    }
+
+    /// Cycle repeat off → all → one → off, matching the Apple Music control.
+    static func cycleRepeat() async {
+        switch player.state.repeatMode {
+        case nil, .some(.none): player.state.repeatMode = .all
+        case .some(.all):       player.state.repeatMode = .one
+        default:                player.state.repeatMode = MusicPlayer.RepeatMode.none
+        }
+        await refreshSnapshot()
+    }
+
     /// Duration of the current entry, derived from the underlying song.
     private static func currentDuration() -> TimeInterval {
         if case let .song(song)? = player.queue.currentEntry?.item {
@@ -99,6 +114,14 @@ enum PlaybackEngine {
         let elapsed = player.playbackTime
         let progress = duration > 0 ? min(1, elapsed / duration) : 0
 
+        let shuffle = (player.state.shuffleMode == .songs)
+        let repeatState: RepeatState
+        switch player.state.repeatMode {
+        case .some(.all): repeatState = .all
+        case .some(.one): repeatState = .one
+        default:          repeatState = .off
+        }
+
         var artworkPNG: Data? = nil
         if let artwork = entry?.artwork {
             artworkPNG = await Artworks.png(from: artwork, size: 240)
@@ -112,6 +135,8 @@ enum PlaybackEngine {
             artworkPNG: artworkPNG,
             progress: progress,
             duration: duration,
+            shuffle: shuffle,
+            repeatState: repeatState,
             updatedAt: Date()
         )
 

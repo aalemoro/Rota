@@ -23,7 +23,7 @@ enum AppGroup {
     }
 
     enum Key {
-        static let nowPlaying = "rota.nowPlaying.v1"
+        static let nowPlaying = "rota.nowPlaying.v2"
     }
 
     /// The widget kind identifier used by WidgetKit and `WidgetCenter`.

@@ -20,9 +20,16 @@ struct ContentView: View {
 
             switch music.authorization {
             case .authorized:
-                iPodView(compact: compact)
-                    .environmentObject(music)
-                    .padding(compact ? 8 : 12)
+                Group {
+                    switch music.style {
+                    case .player:
+                        MiniPlayerView(compact: compact).environmentObject(music)
+                    case .wheel:
+                        iPodView(compact: compact).environmentObject(music)
+                    }
+                }
+                .padding(compact ? 8 : 12)
+                .transition(.opacity)
             case .notDetermined:
                 loading
             default:

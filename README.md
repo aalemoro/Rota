@@ -4,9 +4,9 @@
 
 # Rota
 
-**Your Apple Music, on a wheel.** 🎧
+**Your Apple Music, in glass.** 🎧
 
-A tiny iPod for your Mac — a Liquid Glass menu-bar player and a home-screen widget that lets you scrub, skip and play straight from the click wheel.
+A Liquid Glass mini-player for your Mac — album art edge to edge, a **draggable scrub bar**, shuffle & repeat, and a home-screen widget in three sizes whose buttons really control playback. Flip it over and there's a working **iPod click wheel**.
 
 [![Platform](https://img.shields.io/badge/platform-macOS%2026-black?logo=apple)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-5-orange?logo=swift)](https://swift.org)
@@ -14,7 +14,7 @@ A tiny iPod for your Mac — a Liquid Glass menu-bar player and a home-screen wi
 [![Music](https://img.shields.io/badge/Apple%20Music-MusicKit-fa243c?logo=apple-music&logoColor=white)](https://developer.apple.com/musickit/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-<img src="docs/app_window.png" width="300" alt="Rota player window" />
+<img src="docs/mini_player.png" width="300" alt="Rota Liquid Glass mini-player" />
 
 </div>
 
@@ -22,13 +22,20 @@ A tiny iPod for your Mac — a Liquid Glass menu-bar player and a home-screen wi
 
 ## ✨ What it is
 
-Rota reimagines the classic iPod click wheel as a **Liquid Glass** control surface on macOS. It plays your Apple Music library through `MusicKit`, and mirrors what's playing into a **WidgetKit widget in three sizes** whose buttons actually control playback — no need to open the Music app.
+Rota is a **Liquid Glass** music player for macOS. The album art fills the window, a frosted glass scrim floats the controls on top, and everything plays through your Apple Music library via `MusicKit`. What's playing is mirrored into a **WidgetKit widget in three sizes** whose buttons actually control playback — no need to open the Music app.
 
-- 🎡 **Real click wheel** — drag the ring to scroll your library or scrub the current track; tap the cardinal zones for Menu, ⏮, ⏭ and ⏯; press the center to select.
-- 🧊 **Liquid Glass throughout** — built on the iOS/macOS 26 `glassEffect` APIs, so the wheel, screen and widget feel like frosted glass rather than flat rectangles.
-- 🧩 **Interactive widget, three sizes** — Small, Medium and Large. Transport buttons are wired to App Intents, so a tap plays/pauses or skips instantly.
-- 📊 **Menu-bar player** — the same iPod drops down from the status bar, so your music is one click away.
+- 🫧 **Liquid Glass mini-player** — full-bleed artwork under a frosted glass scrim, built on the iOS/macOS 26 `glassEffect` APIs. Not a flat rectangle in sight.
+- 🎚️ **Draggable scrub bar** — grab the glowing glass thumb (or tap anywhere on the track) to seek. It follows your finger and commits on release.
+- 🔀 **Full transport** — shuffle · ⏮ · play/pause · ⏭ · repeat, all live.
+- 🎡 **Hidden iPod mode** — tap the wheel button and the whole thing becomes a real click wheel: spin the ring to browse or scrub, press the center to select.
+- 🧩 **Interactive widget, three sizes** — Small, Medium and Large. Transport buttons are wired to App Intents, so a tap plays/pauses, skips, shuffles or repeats instantly.
+- 📊 **Menu-bar player** — the same glass player drops down from the status bar, one click away.
 - 🍎 **Native Apple Music** — no scraping, no third-party accounts. Just `MusicKit` and your own library.
+
+<div align="center">
+<img src="docs/app_window.png" width="240" alt="Rota iPod click-wheel mode" />
+<br/><em>iPod mode — the same player, as a click wheel.</em>
+</div>
 
 ## 📸 The widget, in three sizes
 
@@ -39,8 +46,8 @@ Rota reimagines the classic iPod click wheel as a **Liquid Glass** control surfa
 | Size | What you get |
 | --- | --- |
 | **Small** | Artwork, title/artist, progress, one play/pause button. |
-| **Medium** | Artwork, full track info, progress, and ⏮ ⏯ ⏭ transport. |
-| **Large** | Big artwork, full info, progress, and large transport controls. |
+| **Medium** | Artwork, full track info, progress, and 🔀 ⏮ ⏯ ⏭ 🔁 transport. |
+| **Large** | Big artwork, full info, progress, and the full transport row. |
 
 ## 🧰 Requirements
 
@@ -90,9 +97,11 @@ Rota/
 │   ├── Model/
 │   │   └── MusicController.swift   # auth, library, playback, wheel navigation
 │   ├── Views/
-│   │   ├── iPodView.swift       # the glass body: screen + wheel
+│   │   ├── MiniPlayerView.swift # the glass mini-player (default look)
+│   │   ├── SeekBar.swift        # draggable Liquid Glass scrub bar
+│   │   ├── iPodView.swift       # the glass body: screen + wheel (iPod mode)
 │   │   ├── ClickWheel.swift     # the interactive wheel (drag + tap zones)
-│   │   ├── NowPlayingView.swift # artwork / title / progress
+│   │   ├── NowPlayingView.swift # artwork / title / seek bar
 │   │   ├── LibraryView.swift    # the scrollable song list
 │   │   └── GlassComponents.swift
 │   ├── Shared/                  # compiled into BOTH app and widget

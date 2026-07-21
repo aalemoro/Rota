@@ -54,12 +54,20 @@ struct ScreenBezel<Content: View>: View {
             .padding(14)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.black.opacity(0.55))
+                    .fill(Color.black.opacity(0.38))
+                    // Soft top sheen so the glass catches the light.
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(LinearGradient(
+                                colors: [.white.opacity(0.14), .clear],
+                                startPoint: .top, endPoint: .center))
+                            .blendMode(.plusLighter)
+                    }
                     .overlay {
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
                                 LinearGradient(
-                                    colors: [.white.opacity(0.18), .white.opacity(0.02)],
+                                    colors: [.white.opacity(0.22), .white.opacity(0.03)],
                                     startPoint: .top, endPoint: .bottom),
                                 lineWidth: 1)
                     }

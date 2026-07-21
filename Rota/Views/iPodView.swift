@@ -21,7 +21,9 @@ struct iPodView: View {
                     Group {
                         switch music.screen {
                         case .nowPlaying:
-                            NowPlayingView(snapshot: music.nowPlaying)
+                            NowPlayingView(snapshot: music.nowPlaying) { fraction in
+                                Task { await music.seek(to: fraction) }
+                            }
                         case .library:
                             LibraryView(songs: music.songs,
                                         selection: music.selection,
@@ -48,14 +50,36 @@ struct iPodView: View {
         .background {
             RoundedRectangle(cornerRadius: 34, style: .continuous)
                 .fill(
-                    LinearGradient(colors: [Color(white: 0.20), Color(white: 0.07)],
+                    LinearGradient(colors: [Color(white: 0.22), Color(white: 0.06)],
                                    startPoint: .top, endPoint: .bottom))
+                // Specular sheen across the top edge of the body.
+                .overlay(alignment: .top) {
+                    RoundedRectangle(cornerRadius: 34, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [.white.opacity(0.18), .clear],
+                            startPoint: .top, endPoint: .center))
+                        .blendMode(.plusLighter)
+                        .padding(1)
+                }
                 .overlay {
                     RoundedRectangle(cornerRadius: 34, style: .continuous)
-                        .strokeBorder(.white.opacity(0.10), lineWidth: 1)
+                        .strokeBorder(
+                            LinearGradient(colors: [.white.opacity(0.20), .white.opacity(0.04)],
+                                           startPoint: .top, endPoint: .bottom),
+                            lineWidth: 1)
                 }
-                .shadow(color: .black.opacity(0.5), radius: 20, y: 10)
+                .shadow(color: .black.opacity(0.55), radius: 22, y: 12)
         }
         .clipShape(RoundedRectangle(cornerRadius: 34, style: .continuous))
+        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 34, style: .continuous))
+        // Switch back to the glass mini-player.
+        .overlay(alignment: .topLeading) {
+            GlassIconButton(system: "rectangle.on.rectangle", size: 28) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    music.style = .player
+                }
+            }
+            .padding(compact ? 14 : 18)
+        }
     }
 }

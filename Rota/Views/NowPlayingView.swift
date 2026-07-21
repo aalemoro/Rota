@@ -3,14 +3,15 @@
 //  Rota
 //
 //  The "screen" content when the iPod is showing the current track: artwork,
-//  title/artist, and a slim progress bar. Mirrors the classic iPod now-playing
-//  layout, updated for glass.
+//  title/artist, and the draggable Liquid Glass seek bar. Mirrors the classic
+//  iPod now-playing layout, updated for glass.
 //
 
 import SwiftUI
 
 struct NowPlayingView: View {
     let snapshot: NowPlayingSnapshot
+    var onSeek: (Double) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -34,7 +35,7 @@ struct NowPlayingView: View {
             }
             .multilineTextAlignment(.center)
 
-            progressBar
+            SeekBar(progress: snapshot.progress, duration: snapshot.duration, onSeek: onSeek)
         }
         .foregroundStyle(.white)
     }
@@ -53,39 +54,20 @@ struct NowPlayingView: View {
                 }
             }
         }
-        .frame(width: 150, height: 150)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .frame(width: 148, height: 148)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        // Liquid Glass sheen over the artwork
         .overlay {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .strokeBorder(.white.opacity(0.12), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [.white.opacity(0.22), .clear, .clear],
+                    startPoint: .topLeading, endPoint: .bottomTrailing))
+                .blendMode(.plusLighter)
         }
-        .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
-    }
-
-    private var progressBar: some View {
-        VStack(spacing: 3) {
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule().fill(.white.opacity(0.18))
-                    Capsule().fill(Color.rotaAccent)
-                        .frame(width: max(2, geo.size.width * snapshot.progress))
-                }
-            }
-            .frame(height: 4)
-
-            HStack {
-                Text(timeString(snapshot.progress * snapshot.duration))
-                Spacer()
-                Text("-" + timeString(max(0, snapshot.duration - snapshot.progress * snapshot.duration)))
-            }
-            .font(.system(size: 9, design: .monospaced))
-            .foregroundStyle(.secondary)
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.white.opacity(0.16), lineWidth: 1)
         }
-    }
-
-    private func timeString(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let s = Int(seconds)
-        return String(format: "%d:%02d", s / 60, s % 60)
+        .shadow(color: .black.opacity(0.45), radius: 10, y: 5)
     }
 }

@@ -40,3 +40,21 @@ struct PreviousTrackIntent: AppIntent {
         return .result()
     }
 }
+
+struct ShuffleIntent: AppIntent {
+    static var title: LocalizedStringResource = "Toggle Shuffle"
+
+    func perform() async throws -> some IntentResult {
+        await PlaybackEngine.toggleShuffle()
+        return .result()
+    }
+}
+
+struct RepeatIntent: AppIntent {
+    static var title: LocalizedStringResource = "Cycle Repeat"
+
+    func perform() async throws -> some IntentResult {
+        await PlaybackEngine.cycleRepeat()
+        return .result()
+    }
+}

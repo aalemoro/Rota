@@ -11,6 +11,9 @@
 import Foundation
 import SwiftUI
 
+/// How the current track repeats. Raw values are stable for App Group storage.
+enum RepeatState: Int, Codable { case off = 0, all = 1, one = 2 }
+
 struct NowPlayingSnapshot: Codable, Equatable {
     var title: String
     var artist: String
@@ -22,6 +25,9 @@ struct NowPlayingSnapshot: Codable, Equatable {
     var progress: Double
     /// Track length in seconds, if known.
     var duration: TimeInterval
+    /// Shuffle and repeat state, mirrored for the UI and widget.
+    var shuffle: Bool = false
+    var repeatState: RepeatState = .off
     /// When this snapshot was produced — lets the widget age progress locally.
     var updatedAt: Date
 
@@ -33,17 +39,21 @@ struct NowPlayingSnapshot: Codable, Equatable {
         artworkPNG: nil,
         progress: 0,
         duration: 0,
+        shuffle: false,
+        repeatState: .off,
         updatedAt: Date(timeIntervalSince1970: 0)
     )
 
     static let sample = NowPlayingSnapshot(
-        title: "Midnight City",
-        artist: "M83",
-        album: "Hurry Up, We're Dreaming",
+        title: "Dancin (Krono Remix)",
+        artist: "Aaron Smith · feat. Luvli",
+        album: "Dancin (Krono Remix) - Single",
         isPlaying: true,
         artworkPNG: nil,
-        progress: 0.42,
-        duration: 244,
+        progress: 0.1,
+        duration: 198,
+        shuffle: false,
+        repeatState: .off,
         updatedAt: Date(timeIntervalSince1970: 0)
     )
 
