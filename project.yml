@@ -1,0 +1,62 @@
+# XcodeGen project spec for Rota.
+# Generate the Xcode project with:  xcodegen generate
+#
+# Everything Xcode needs is described here, so the .xcodeproj can be
+# regenerated from source at any time (it's git-ignored on purpose).
+
+name: Rota
+options:
+  bundleIdPrefix: com.yourteam
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "26.0"
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    CODE_SIGN_STYLE: Automatic
+    # ↓ Put your 10-character Apple Developer Team ID here (or set it in Xcode).
+    DEVELOPMENT_TEAM: ""
+    GENERATE_INFOPLIST_FILE: YES
+    ENABLE_HARDENED_RUNTIME: YES
+
+targets:
+
+  Rota:
+    type: application
+    platform: macOS
+    sources:
+      - path: Rota
+    dependencies:
+      - target: RotaWidgetExtension
+      - sdk: MusicKit.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourteam.rota
+        PRODUCT_NAME: Rota
+        CODE_SIGN_ENTITLEMENTS: Rota/Rota.entitlements
+        ENABLE_PREVIEWS: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.music"
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: "Rota plays your Apple Music library and keeps the widget in sync."
+        INFOPLIST_KEY_NSHumanReadableCopyright: "© 2026"
+
+  RotaWidgetExtension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: RotaWidget
+      # Compile the shared files into the widget too, so it can read the
+      # snapshot and drive the same PlaybackEngine.
+      - path: Rota/Shared
+    dependencies:
+      - sdk: MusicKit.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourteam.rota.widget
+        PRODUCT_NAME: RotaWidget
+        CODE_SIGN_ENTITLEMENTS: RotaWidget/RotaWidget.entitlements
+        INFOPLIST_FILE: RotaWidget/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
