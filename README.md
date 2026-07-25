@@ -1,158 +1,202 @@
-<div align="center">
+<p align="center">
+  <img src="design/logo.png" width="128" alt="Rota icon" />
+</p>
 
-<img src="docs/icon.png" width="128" alt="Rota app icon" />
+<h1 align="center">Rota</h1>
 
-# Rota
+<p align="center">
+  A floating Apple&nbsp;Music widget for macOS — artwork-first, with synced lyrics.<br/>
+  <em>rota</em> · Latin for "wheel"
+</p>
 
-**Your Apple Music, in glass.** 🎧
-
-A Liquid Glass mini-player for your Mac — album art edge to edge, a **draggable scrub bar**, shuffle & repeat, and a home-screen widget in three sizes whose buttons really control playback. Flip it over and there's a working **iPod click wheel**.
-
-[![Platform](https://img.shields.io/badge/platform-macOS%2026-black?logo=apple)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-5-orange?logo=swift)](https://swift.org)
-[![SwiftUI](https://img.shields.io/badge/UI-SwiftUI%20%C2%B7%20WidgetKit-blue)](https://developer.apple.com/xcode/swiftui/)
-[![Music](https://img.shields.io/badge/Apple%20Music-MusicKit-fa243c?logo=apple-music&logoColor=white)](https://developer.apple.com/musickit/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-<img src="docs/mini_player.png" width="300" alt="Rota Liquid Glass mini-player" />
-
-</div>
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-13%2B-blue?logo=apple" alt="macOS 13+" />
+  <img src="https://img.shields.io/badge/Swift-5.9-orange?logo=swift" alt="Swift 5.9" />
+  <img src="https://img.shields.io/badge/dependencies-zero-brightgreen" alt="Zero dependencies" />
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT" />
+</p>
 
 ---
 
-## ✨ What it is
+<p align="center">
+  <img src="docs/player.png" width="340" alt="Rota player" />
+  &nbsp;&nbsp;
+  <img src="docs/lyrics.png" width="340" alt="Rota lyrics mode" />
+</p>
 
-Rota is a **Liquid Glass** music player for macOS. The album art fills the window, a frosted glass scrim floats the controls on top, and everything plays through your Apple Music library via `MusicKit`. What's playing is mirrored into a **WidgetKit widget in three sizes** whose buttons actually control playback — no need to open the Music app.
+**Rota** puts a small, beautiful now-playing widget on your desktop. The album
+cover fills the whole card, melting into frosted glass behind the controls —
+and one click flips it into a karaoke-style **synced lyrics** view. It floats
+above your windows (or below, your call), follows you across Spaces, and stays
+out of the Dock.
 
-- 🫧 **Liquid Glass mini-player** — full-bleed artwork under a frosted glass scrim, built on the iOS/macOS 26 `glassEffect` APIs. Not a flat rectangle in sight.
-- 🎚️ **Draggable scrub bar** — grab the glowing glass thumb (or tap anywhere on the track) to seek. It follows your finger and commits on release.
-- 🔀 **Full transport** — shuffle · ⏮ · play/pause · ⏭ · repeat, all live.
-- 🎡 **Hidden iPod mode** — tap the wheel button and the whole thing becomes a real click wheel: spin the ring to browse or scrub, press the center to select.
-- 🧩 **Interactive widget, three sizes** — Small, Medium and Large. Transport buttons are wired to App Intents, so a tap plays/pauses, skips, shuffles or repeats instantly.
-- 📊 **Menu-bar player** — the same glass player drops down from the status bar, one click away.
-- 🍎 **Native Apple Music** — no scraping, no third-party accounts. Just `MusicKit` and your own library.
+## ✨ Features
 
-<div align="center">
-<img src="docs/app_window.png" width="240" alt="Rota iPod click-wheel mode" />
-<br/><em>iPod mode — the same player, as a click wheel.</em>
-</div>
+- 🎨 **Artwork-first design** — the cover *is* the interface, with a progressive
+  blur and scrim exactly like Apple Music's MiniPlayer.
+- 🎛 **Full transport** — play/pause, next/previous, a draggable seek bar with
+  elapsed/remaining time, shuffle and repeat (off → all → one).
+- 🎤 **Synced lyrics** — line-by-line highlighting that scrolls with the song,
+  via the free [LRCLIB](https://lrclib.net) database. Click any line to jump
+  there. Falls back to plain lyrics when no synced version exists.
+- ⭐ **Favourite** the current song without touching the Music app.
+- 🔊 **Volume** control tucked into the hover toolbar.
+- 🖥 **A true desktop widget** — it sits just above your wallpaper, under your
+  windows, exactly like macOS's own widgets. Hit 📌 to float it above
+  everything instead. Visible on every Space either way.
+- ⌨️ **Keyboard shortcuts** — click the widget, then:
+  `space` play/pause · `←`/`→` previous/next · `↑`/`↓` volume · `L` lyrics ·
+  `F` favourite · `esc` close lyrics / hide.
+- 🫥 **No Dock icon** — Rota lives in the menu bar (🌊 icon) with a tidy menu:
+  show/hide, lyrics, keep-on-top, launch at login, quit.
+- 🪶 **Native and tiny** — pure Swift + SwiftUI, zero third-party dependencies,
+  no Electron, ~2 MB on disk.
 
-## 📸 The widget, in three sizes
+## 📦 Install
 
-<div align="center">
-<img src="docs/widgets.png" width="720" alt="Rota widget in small, medium and large sizes" />
-</div>
+> Rota controls the **Music app**, so it works with your Apple Music
+> subscription *and* with a local library. Nothing to sign into.
 
-| Size | What you get |
-| --- | --- |
-| **Small** | Artwork, title/artist, progress, one play/pause button. |
-| **Medium** | Artwork, full track info, progress, and 🔀 ⏮ ⏯ ⏭ 🔁 transport. |
-| **Large** | Big artwork, full info, progress, and the full transport row. |
+### Option 1 — Download the app (easiest)
 
-## 🧰 Requirements
+1. Grab **`Rota-x.y.z-macOS.zip`** from the
+   [latest release](https://github.com/aalemoro/Rota/releases/latest).
+2. Unzip it and drag **Rota.app** into **Applications**.
+3. First launch: **right-click → Open** (the build is ad-hoc signed, so macOS
+   asks once). Alternatively, clear the quarantine flag yourself:
 
-| | |
-| --- | --- |
-| 🖥️ macOS | **26 (Tahoe)** or later — Liquid Glass ships with 26. |
-| 🛠️ Xcode | **26** or later. |
-| 🎵 Apple Music | An active subscription (needed to play library content). |
-| 📦 XcodeGen | Generates the `.xcodeproj` from `project.yml` — `brew install xcodegen`. |
-| 🍏 Apple Developer | A (free or paid) account for signing; **paid** to ship on the App Store. |
+   ```bash
+   # Tells Gatekeeper you trust the app you just downloaded
+   xattr -dr com.apple.quarantine /Applications/Rota.app
+   ```
 
-## 🚀 Getting started
+4. Click **Allow** when macOS asks if Rota may control Music. Done. 🎉
+
+### Option 2 — One command
+
+Builds from source and installs into Applications automatically:
 
 ```bash
-# 1 — Clone
-git clone https://github.com/<your-username>/Rota.git
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/aalemoro/Rota/main/scripts/install.sh)"
+```
+
+### Option 3 — Build from source
+
+Requires Apple's Command Line Tools (`xcode-select --install`). No Xcode
+project, no signing setup — it's a plain Swift package:
+
+```bash
+# 1. Get the code
+git clone https://github.com/aalemoro/Rota.git
 cd Rota
 
-# 2 — Install the project generator (once)
-brew install xcodegen
+# 2. Compile and assemble Rota.app into ./build
+make app
 
-# 3 — Generate the Xcode project from project.yml
-xcodegen generate
+# 3. Copy it into /Applications (falls back to ~/Applications)
+make install
 
-# 4 — Open it
-open Rota.xcodeproj
+# — or just build & launch it in place:
+make run
 ```
 
-Then, **once**, wire up signing and the shared container in Xcode:
+Other useful targets:
 
-1. **Signing** — select the `Rota` and `RotaWidgetExtension` targets → *Signing & Capabilities* → pick your Team. Xcode will manage the certificates.
-2. **App Group** — on *both* targets add an **App Group** and set it to `group.com.yourteam.rota`
-   *(or rename it — just keep it identical in `Rota.entitlements`, `RotaWidget.entitlements` and `AppGroup.identifier` in `Shared/AppGroup.swift`).*
-3. **Bundle IDs** — replace `com.yourteam.rota` / `com.yourteam.rota.widget` with your own reverse-domain identifiers (in `project.yml`, then re-run `xcodegen generate`).
-4. **Run** ▶️ — build the `Rota` scheme. Grant Apple Music access when prompted, and your library loads onto the wheel.
-5. **Add the widget** — right-click the desktop or open Notification Center → *Edit Widgets* → search **Rota** → drop in the size you like.
-
-> 💡 **Tip:** the `.xcodeproj` is intentionally *git-ignored*. `project.yml` is the source of truth — regenerate any time with `xcodegen generate`. This keeps the repo clean and diff-friendly.
-
-## 🗂️ Project structure
-
-```
-Rota/
-├── project.yml                 # XcodeGen spec — the whole project in one file
-├── Rota/                       # macOS app target
-│   ├── RotaApp.swift           # @main — window + menu-bar scene
-│   ├── Model/
-│   │   └── MusicController.swift   # auth, library, playback, wheel navigation
-│   ├── Views/
-│   │   ├── MiniPlayerView.swift # the glass mini-player (default look)
-│   │   ├── SeekBar.swift        # draggable Liquid Glass scrub bar
-│   │   ├── iPodView.swift       # the glass body: screen + wheel (iPod mode)
-│   │   ├── ClickWheel.swift     # the interactive wheel (drag + tap zones)
-│   │   ├── NowPlayingView.swift # artwork / title / seek bar
-│   │   ├── LibraryView.swift    # the scrollable song list
-│   │   └── GlassComponents.swift
-│   ├── Shared/                  # compiled into BOTH app and widget
-│   │   ├── AppGroup.swift        # shared identifiers
-│   │   ├── SharedModel.swift     # NowPlayingSnapshot + store
-│   │   ├── PlaybackEngine.swift  # async wrapper over ApplicationMusicPlayer
-│   │   ├── Artworks.swift        # artwork → PNG helper
-│   │   └── Theme.swift
-│   └── Assets.xcassets/AppIcon.appiconset   # the generated app icon
-├── RotaWidget/                 # widget extension target
-│   ├── RotaWidgetBundle.swift
-│   ├── RotaWidget.swift         # small / medium / large layouts
-│   ├── Provider.swift           # timeline from the shared snapshot
-│   └── PlaybackIntents.swift    # App Intents behind the buttons
-└── design/                     # Python generators for the icon + mockups
+```bash
+make zip     # package build/Rota-x.y.z-macOS.zip for distribution
+make clean   # remove all build products
 ```
 
-## ⚙️ How it works
+## 🕹 Using Rota
 
-Rota keeps the app and the widget in sync through a small **shared snapshot**:
+| You want to… | Do this |
+|---|---|
+| Move the widget | Drag it anywhere on the cover |
+| See the toolbar | Hover the widget — close dot, lyrics, volume, pin |
+| Lyrics mode | Hover → 💬 button, or press `L`, or right-click → *Show Lyrics* |
+| Jump inside a song | Drag the seek bar, or click a lyrics line |
+| Bring it above your windows | Hover → 📌 pin (click again to send it back to the desktop) |
+| Hide the widget | Red dot, or `esc` — bring it back from the menu bar icon |
+| Start at login | Menu bar icon → *Launch at Login* |
 
-1. The app plays music via `ApplicationMusicPlayer.shared`, wrapped by **`PlaybackEngine`**.
-2. After every change, the engine writes a compact `NowPlayingSnapshot` (title, artist, artwork thumbnail, progress…) into the **App Group** and calls `WidgetCenter.reloadTimelines`.
-3. The widget's `TimelineProvider` reads that snapshot — so it always shows the real state.
-4. Tapping a widget button runs an **App Intent** (`PlayPauseIntent`, `NextTrackIntent`, `PreviousTrackIntent`) that calls the *same* `PlaybackEngine`, then refreshes the snapshot again.
+### ⚡ Scripting (`rota://` URLs)
 
-Because both sides go through one engine and one shared file, the wheel, the menu-bar player and the widget never disagree about what's playing. 🔁
+Rota answers to URL commands, so you can wire it into Raycast, Shortcuts,
+aliases — anything that can `open` a URL:
 
-## 🗺️ Roadmap
+```bash
+open "rota://playpause"   # toggle playback        rota://next · rota://previous
+open "rota://lyrics"      # open lyrics mode       rota://player closes it
+open "rota://toggle"      # show / hide the widget rota://favorite ⭐ the song
+open "rota://dump"        # write player state to /tmp/rota_state.json (JSON)
+open "rota://snapshot"    # save a PNG of the widget to /tmp/rota_snapshot.png
+```
 
-- [ ] Haptic-style feedback and sound on wheel steps
-- [ ] Search screen (spin to a letter, iPod-style)
-- [ ] Lock Screen / StandBy widget on iOS (the codebase is structured to port)
-- [ ] Playlists and "Up Next" on the wheel
-- [ ] AppKit `UIGlassEffect` polish pass for the wheel highlight
+## 🔒 Privacy & permissions
 
-## 📤 Publishing to the App Store
+- Rota needs **one** permission: *Automation → Music* (macOS asks on first
+  launch). That's how it reads what's playing and presses play for you.
+- Lyrics lookups send only **title, artist, album and duration** to
+  [LRCLIB](https://lrclib.net) over HTTPS — no account, no keys, no tracking.
+  Results are cached locally in `~/Library/Caches/Rota`.
+- Nothing else ever leaves your Mac. No analytics, no network calls besides
+  lyrics.
 
-1. In Xcode: *Product → Archive*, then *Distribute App → App Store Connect*.
-2. In [App Store Connect](https://appstoreconnect.apple.com), create the app record, upload the build, and attach screenshots (the ones in `docs/` are a good starting point).
-3. Fill in the **Apple Music** capability on your App ID and mention `MusicKit` usage in the review notes.
-4. Submit for review. 🚀
+If you denied the permission by accident:
+**System Settings → Privacy & Security → Automation → Rota → enable Music** —
+or run:
 
-> ⚠️ **Note:** you need a **paid** Apple Developer Program membership to publish. The app icon, entitlements and metadata are already set up for a smooth submission.
+```bash
+# Resets the Automation permission so macOS asks again
+tccutil reset AppleEvents io.github.aalemoro.rota
+```
 
-## 📝 License
+## 🛠 How it works
 
-Released under the [MIT License](LICENSE). Album artwork and Apple Music content belong to their respective owners; Rota only controls playback of music you already have access to.
+- **UI** — SwiftUI inside a borderless, non-activating `NSPanel` (that's why
+  clicking the widget never steals focus from the app you're working in).
+- **Playback bridge** — a compiled `NSAppleScript` bridge to the Music app:
+  one round-trip per second returns the full player state, and distributed
+  notifications (`com.apple.Music.playerInfo`) make track changes feel
+  instant. The same battle-tested approach used by long-standing third-party
+  mini players — no MusicKit authorization flows, no private APIs.
+- **Lyrics** — `[mm:ss.xx]`-timestamped LRC parsing with a small scorer that
+  matches the right edit of a song by duration, plus an on-disk cache.
 
----
+```
+Sources/Rota
+├── main.swift              app entry
+├── AppDelegate.swift       floating panel, menu bar, shortcuts
+├── Player
+│   ├── MusicBridge.swift   Apple Events bridge (state, commands, artwork)
+│   └── PlayerStore.swift   observable state, polling, optimistic actions
+├── Lyrics
+│   └── Lyrics.swift        LRCLIB client, LRC parser, disk cache
+└── Views
+    ├── RootView.swift      shell, background, hover chrome, empty states
+    ├── PlayerView.swift    title row, seek bar, transport controls
+    └── LyricsView.swift    synced karaoke view / plain fallback
+```
 
-<div align="center">
-Made with 🖤 for people who miss the click wheel.
-</div>
+## 🩹 Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| "Music isn't running" card | Click **Open Music** — Rota never launches Music behind your back |
+| Controls do nothing | Grant the Automation permission (see above) |
+| No lyrics for a song | LRCLIB simply may not have them — the words view falls back or tells you |
+| "Rota can't be opened" on first launch | Right-click → **Open**, or the `xattr` command in the install section |
+| Widget vanished | Menu bar 🌊 icon → *Show / Hide Rota* |
+
+## 🗺 Roadmap
+
+- 📱 iOS companion widget (WidgetKit + App Intents)
+- 🟢 Spotify as a second, auto-detected source
+- 🖼 Notarized DMG releases
+- 🏪 Mac App Store build (sandbox + scripting-targets entitlement)
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 Alessandro Gaudio.
+Album artwork belongs to its copyright holders. Lyrics data courtesy of
+[LRCLIB](https://lrclib.net).

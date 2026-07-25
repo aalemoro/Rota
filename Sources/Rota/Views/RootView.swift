@@ -1,0 +1,372 @@
+//
+//  RootView.swift
+//  Rota
+//
+//  The widget shell: artwork background, hover chrome, mode switching.
+//
+
+import SwiftUI
+
+struct RootView: View {
+
+    @EnvironmentObject var store: PlayerStore
+    @State private var hovering = false
+
+    private let cornerRadius: CGFloat = 24
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                ArtworkBackground(
+                    artwork: store.artwork,
+                    blurred: store.artworkBlurred,
+                    dimmed: store.showLyrics
+                )
+
+                content
+                    .frame(width: geo.size.width, height: geo.size.height)
+
+                TopBar(hovering: hovering)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.10), lineWidth: 1)
+        )
+        .onHover { inside in
+            withAnimation(.easeOut(duration: 0.18)) { hovering = inside }
+        }
+        .animation(.spring(response: 0.42, dampingFraction: 0.86), value: store.showLyrics)
+        .animation(.easeInOut(duration: 0.35), value: store.availability)
+        .preferredColorScheme(.dark)
+        .contextMenu {
+            Button(store.snapshot.state == .playing ? "Pause" : "Play") { store.togglePlayPause() }
+            Button("Next Track") { store.nextTrack() }
+            Button("Previous Track") { store.previousTrack() }
+            Divider()
+            Button(store.showLyrics ? "Hide Lyrics" : "Show Lyrics") { store.showLyrics.toggle() }
+            Button(store.keepOnTop ? "Stick to Desktop" : "Float Above Windows") { store.keepOnTop.toggle() }
+            Divider()
+            Button("Open Apple Music") { store.openMusicApp() }
+            Button("Hide Widget") { store.onHide?() }
+            Divider()
+            Button("Quit Rota") { NSApp.terminate(nil) }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch store.availability {
+        case .musicNotRunning:
+            IdleView(
+                symbol: "music.note",
+                title: "Music isn't running",
+                caption: "Open Apple Music to get started.",
+                buttonLabel: "Open Music",
+                action: { store.openMusicApp() }
+            )
+        case .needsAutomationPermission:
+            IdleView(
+                symbol: "lock.shield",
+                title: "Permission needed",
+                caption: "Allow Rota to control Music in\nSystem Settings → Privacy & Security → Automation.",
+                buttonLabel: "Open Settings",
+                action: { store.openAutomationSettings() }
+            )
+        case .ready:
+            if store.showLyrics {
+                LyricsView()
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            } else if store.snapshot.hasTrack {
+                PlayerView(hovering: hovering)
+                    .transition(.opacity)
+            } else {
+                IdleView(
+                    symbol: "music.note.list",
+                    title: "Nothing playing",
+                    caption: "Pick a song in Apple Music.",
+                    buttonLabel: "Open Music",
+                    action: { store.openMusicApp() }
+                )
+            }
+        }
+    }
+}
+
+// MARK: - Background
+
+struct ArtworkBackground: View {
+
+    let artwork: NSImage?
+    let blurred: NSImage?
+    var dimmed: Bool
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                if let artwork {
+                    if dimmed {
+                        // Lyrics mode — the whole cover melts into a colour wash.
+                        // The blur is pre-baked with CoreImage (see PlayerStore),
+                        // so it renders identically everywhere.
+                        Image(nsImage: blurred ?? artwork)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+                            .overlay(Color.black.opacity(0.42))
+                    } else {
+                        // Player mode — sharp cover with a progressive melt
+                        // into the control area, like the Music mini-player.
+                        Image(nsImage: artwork)
+                            .resizable()
+                            .interpolation(.high)
+                            .scaledToFill()
+                            .frame(width: geo.size.width, height: geo.size.height)
+                            .clipped()
+
+                        if let blurred {
+                            Image(nsImage: blurred)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: geo.size.width, height: geo.size.height)
+                                .clipped()
+                                .mask(
+                                    LinearGradient(
+                                        stops: [
+                                            .init(color: .clear, location: 0.30),
+                                            .init(color: .black, location: 0.60)
+                                        ],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                        }
+
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black.opacity(0.0), location: 0.35),
+                                .init(color: .black.opacity(0.52), location: 1.0)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.13, green: 0.15, blue: 0.27),
+                            Color(red: 0.07, green: 0.07, blue: 0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    if dimmed { Color.black.opacity(0.3) }
+                }
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+    }
+}
+
+// MARK: - Top chrome
+
+struct TopBar: View {
+
+    @EnvironmentObject var store: PlayerStore
+    var hovering: Bool
+
+    @State private var volumeOpen = false
+
+    var body: some View {
+        VStack {
+            HStack(spacing: 10) {
+                CloseDot { store.onHide?() }
+
+                Spacer(minLength: 0)
+
+                if store.availability == .ready {
+                    HStack(spacing: 4) {
+                        GlassIconButton(
+                            symbol: store.showLyrics ? "quote.bubble.fill" : "quote.bubble",
+                            active: store.showLyrics,
+                            help: "Lyrics (L)"
+                        ) {
+                            store.showLyrics.toggle()
+                        }
+
+                        GlassIconButton(
+                            symbol: volumeSymbol,
+                            active: volumeOpen,
+                            help: "Volume"
+                        ) {
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.8)) {
+                                volumeOpen.toggle()
+                            }
+                        }
+
+                        if volumeOpen {
+                            VolumeBar()
+                                .transition(.opacity.combined(with: .scale(scale: 0.6, anchor: .trailing)))
+                        }
+
+                        GlassIconButton(
+                            symbol: store.keepOnTop ? "pin.fill" : "pin",
+                            active: store.keepOnTop,
+                            help: store.keepOnTop ? "Floating above windows — click to stick to the desktop" : "On the desktop — click to float above windows"
+                        ) {
+                            store.keepOnTop.toggle()
+                        }
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(.ultraThinMaterial))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 12)
+
+            Spacer()
+        }
+        .opacity(hovering ? 1 : 0)
+        .allowsHitTesting(hovering)
+    }
+
+    private var volumeSymbol: String {
+        let v = store.snapshot.volume
+        if v <= 0 { return "speaker.slash.fill" }
+        if v < 34 { return "speaker.wave.1.fill" }
+        if v < 67 { return "speaker.wave.2.fill" }
+        return "speaker.wave.3.fill"
+    }
+}
+
+struct CloseDot: View {
+
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(Color(red: 1.0, green: 0.37, blue: 0.34))
+                    .frame(width: 13, height: 13)
+                    .overlay(Circle().strokeBorder(Color.black.opacity(0.15), lineWidth: 0.5))
+                if hover {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 7, weight: .heavy))
+                        .foregroundStyle(.black.opacity(0.55))
+                }
+            }
+            .frame(width: 20, height: 20)
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .help("Hide Rota (menu bar icon brings it back)")
+    }
+}
+
+struct GlassIconButton: View {
+
+    let symbol: String
+    var active: Bool = false
+    var help: String = ""
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white.opacity(active ? 1.0 : 0.62))
+                .frame(width: 26, height: 22)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(PressableStyle())
+        .help(help)
+    }
+}
+
+struct VolumeBar: View {
+
+    @EnvironmentObject var store: PlayerStore
+
+    var body: some View {
+        GeometryReader { geo in
+            let width = geo.size.width
+            let fraction = max(0, min(1, store.snapshot.volume / 100))
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color.white.opacity(0.28)).frame(height: 4)
+                Capsule().fill(Color.white.opacity(0.95))
+                    .frame(width: max(4, width * fraction), height: 4)
+            }
+            .frame(width: width, height: geo.size.height)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        store.setVolume(Double(value.location.x / width) * 100)
+                    }
+            )
+        }
+        .frame(width: 74, height: 22)
+    }
+}
+
+// MARK: - Idle / empty states
+
+struct IdleView: View {
+
+    let symbol: String
+    let title: String
+    let caption: String
+    let buttonLabel: String
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: symbol)
+                .font(.system(size: 34, weight: .light))
+                .foregroundStyle(.white.opacity(0.45))
+                .padding(.bottom, 4)
+
+            Text(title)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.92))
+
+            Text(caption)
+                .font(.system(size: 11.5))
+                .foregroundStyle(.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Button(action: action) {
+                Text(buttonLabel)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 7)
+                    .background(Capsule().fill(.white.opacity(0.14)))
+                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5))
+            }
+            .buttonStyle(PressableStyle())
+            .padding(.top, 8)
+        }
+        .padding(24)
+    }
+}
+
+// MARK: - Shared button style
+
+struct PressableStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.86 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
