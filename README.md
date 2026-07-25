@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/macOS-13%2B-blue?logo=apple" alt="macOS 13+" />
+  <img src="https://img.shields.io/badge/macOS-14%2B-blue?logo=apple" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/Swift-5.9-orange?logo=swift" alt="Swift 5.9" />
   <img src="https://img.shields.io/badge/dependencies-zero-brightgreen" alt="Zero dependencies" />
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT" />
@@ -33,7 +33,11 @@ out of the Dock.
 ## ✨ Features
 
 - 🎨 **Artwork-first design** — the cover *is* the interface, with a progressive
-  blur and scrim exactly like Apple Music's MiniPlayer.
+  blur and scrim exactly like Apple Music's MiniPlayer. At rest it shows
+  *only* the album art; every control fades in on hover.
+- 🧩 **Gallery widget included** — a real WidgetKit widget (*Rota → Now
+  Playing*) you add from right-click on the desktop → **Edit Widgets**, in
+  three sizes with working transport buttons.
 - 🎛 **Full transport** — play/pause, next/previous, a draggable seek bar with
   elapsed/remaining time, shuffle and repeat (off → all → one).
 - 🎤 **Synced lyrics** — line-by-line highlighting that scrolls with the song,

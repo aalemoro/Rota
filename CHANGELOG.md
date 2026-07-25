@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.0 — 2026-07-25
+
+- 🧩 **Real WidgetKit widget** — add *Rota → Now Playing* from macOS's widget
+  gallery (right-click the desktop → Edit Widgets). Small, medium and large
+  sizes with working play/pause, next/previous and favourite buttons.
+- 🖼 **Hover-only chrome** — at rest the desktop widget shows *just* the album
+  cover, like a photo widget; title, seek bar and controls fade in on hover.
+- 🧊 **Native behaviours** — position locked by default (⌘-drag to move),
+  drawn above macOS's own desktop widgets, pixel-exact placement via
+  `rota://move` (corners, coordinates, or a full `gx/gy/w/h` frame).
+- 🔁 **Launch at login** registered automatically on first run, so the widget
+  is simply there after every reboot.
+- ⬆️ Requires macOS 14+ (interactive widgets).
+
 ## 2.0.0 — 2026-07-25
 
 Complete rewrite. 🎉

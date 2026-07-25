@@ -13,6 +13,7 @@ struct PlayerView: View {
     var hovering: Bool
 
     var body: some View {
+        let visible = hovering || store.isScrubbing
         VStack(spacing: 0) {
             Spacer()
 
@@ -24,6 +25,10 @@ struct PlayerView: View {
             .padding(.horizontal, 22)
             .padding(.bottom, 16)
             .shadow(color: .black.opacity(0.35), radius: 10, y: 2)
+            // Mouse away → the album cover stands alone.
+            .opacity(visible ? 1 : 0)
+            .offset(y: visible ? 0 : 8)
+            .allowsHitTesting(visible)
         }
     }
 

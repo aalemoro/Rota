@@ -20,7 +20,8 @@ struct RootView: View {
                 ArtworkBackground(
                     artwork: store.artwork,
                     blurred: store.artworkBlurred,
-                    dimmed: store.showLyrics
+                    dimmed: store.showLyrics,
+                    chrome: hovering || store.isScrubbing
                 )
 
                 content
@@ -103,6 +104,9 @@ struct ArtworkBackground: View {
     let artwork: NSImage?
     let blurred: NSImage?
     var dimmed: Bool
+    /// When false (mouse away), the cover stands alone — no blur band,
+    /// no scrim — exactly like a photo widget.
+    var chrome: Bool = true
 
     var body: some View {
         GeometryReader { geo in
@@ -128,32 +132,35 @@ struct ArtworkBackground: View {
                             .frame(width: geo.size.width, height: geo.size.height)
                             .clipped()
 
-                        if let blurred {
-                            Image(nsImage: blurred)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: geo.size.width, height: geo.size.height)
-                                .clipped()
-                                .mask(
-                                    LinearGradient(
-                                        stops: [
-                                            .init(color: .clear, location: 0.30),
-                                            .init(color: .black, location: 0.60)
-                                        ],
-                                        startPoint: .top,
-                                        endPoint: .bottom
+                        Group {
+                            if let blurred {
+                                Image(nsImage: blurred)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: geo.size.width, height: geo.size.height)
+                                    .clipped()
+                                    .mask(
+                                        LinearGradient(
+                                            stops: [
+                                                .init(color: .clear, location: 0.30),
+                                                .init(color: .black, location: 0.60)
+                                            ],
+                                            startPoint: .top,
+                                            endPoint: .bottom
+                                        )
                                     )
-                                )
-                        }
+                            }
 
-                        LinearGradient(
-                            stops: [
-                                .init(color: .black.opacity(0.0), location: 0.35),
-                                .init(color: .black.opacity(0.52), location: 1.0)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .black.opacity(0.0), location: 0.35),
+                                    .init(color: .black.opacity(0.52), location: 1.0)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
+                        .opacity(chrome ? 1 : 0)
                     }
                 } else {
                     LinearGradient(

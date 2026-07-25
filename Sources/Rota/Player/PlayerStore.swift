@@ -10,6 +10,8 @@ import AppKit
 import SwiftUI
 import Combine
 import CoreImage
+import WidgetKit
+import RotaKit
 
 final class PlayerStore: ObservableObject {
 
@@ -79,6 +81,11 @@ final class PlayerStore: ObservableObject {
     /// state lags a few seconds behind a local change.
     private var favoriteHoldUntil = Date.distantPast
 
+    // WidgetKit companion
+    private var lastPublishedSignature: String?
+    private var lastCoverPublishedID: String?
+    private var lastCommandStamp: TimeInterval = Date().timeIntervalSince1970
+
     // MARK: - Lifecycle
 
     func start() {
@@ -103,6 +110,14 @@ final class PlayerStore: ObservableObject {
             })
         }
 
+        // Commands coming back from the WidgetKit widget's buttons.
+        observers.append(DistributedNotificationCenter.default().addObserver(
+            forName: SharedStore.commandNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.handleWidgetCommand()
+        })
+
         pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.pollNow()
         }
@@ -116,13 +131,16 @@ final class PlayerStore: ObservableObject {
     // MARK: - Polling
 
     func pollNow() {
+        handleWidgetCommand() // fallback path in case the notification is missed
         guard bridge.isMusicRunning else {
             if availability != .musicNotRunning {
                 availability = .musicNotRunning
                 snapshot = MusicSnapshot()
                 artwork = nil
+                artworkBlurred = nil
                 artworkTrackID = nil
                 displayPosition = 0
+                publishWidgetState()
             }
             return
         }
@@ -174,6 +192,56 @@ final class PlayerStore: ObservableObject {
         if trackChanged {
             lyrics.trackDidChange(for: snap, loadNow: showLyrics)
         }
+
+        publishWidgetState()
+    }
+
+    // MARK: - WidgetKit companion
+
+    /// Mirrors the player state into the shared container and asks
+    /// WidgetKit to redraw. Cheap: only fires when something visible changed
+    /// (or every ~30 s of playback for the progress bar).
+    private func publishWidgetState(force: Bool = false) {
+        let s = snapshot
+        let ready = availability == .ready
+        let signature = [
+            s.persistentID,
+            "\(s.state == .playing)",
+            "\(s.favorited)",
+            "\(Int(displayPosition / 30))",
+            "\(ready)"
+        ].joined(separator: "|")
+
+        guard force || signature != lastPublishedSignature else { return }
+        lastPublishedSignature = signature
+
+        let info = SharedNowPlaying(
+            title: ready ? s.title : "",
+            artist: s.artist,
+            album: s.album,
+            playing: s.state == .playing,
+            favorited: s.favorited,
+            duration: s.duration,
+            position: displayPosition,
+            updatedAt: Date()
+        )
+        SharedStore.writeNowPlaying(info)
+        WidgetCenter.shared.reloadTimelines(ofKind: SharedStore.widgetKind)
+    }
+
+    private func handleWidgetCommand() {
+        guard let (command, stamp) = SharedStore.readCommand(), stamp > lastCommandStamp else { return }
+        lastCommandStamp = stamp
+        switch command {
+        case "playpause": togglePlayPause()
+        case "next": nextTrack()
+        case "previous": previousTrack()
+        case "favorite": toggleFavorite()
+        default: break
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { [weak self] in
+            self?.publishWidgetState(force: true)
+        }
     }
 
     /// Smoothly advances the progress bar between polls.
@@ -212,6 +280,22 @@ final class PlayerStore: ObservableObject {
                 if let blurred {
                     self.blurredCache.setObject(blurred, forKey: id as NSString)
                 }
+                self.publishCovers(for: id, cover: image, blurred: blurred)
+            }
+        }
+    }
+
+    /// Ships downscaled JPEG covers to the shared container for the widget.
+    private func publishCovers(for id: String, cover: NSImage, blurred: NSImage?) {
+        guard lastCoverPublishedID != id else { return }
+        lastCoverPublishedID = id
+        DispatchQueue.global(qos: .utility).async {
+            let coverData = SharedStore.jpegData(from: cover, maxDimension: 800)
+            let blurData = blurred.flatMap { SharedStore.jpegData(from: $0, maxDimension: 800) }
+            DispatchQueue.main.async {
+                if let coverData { SharedStore.writeCover(coverData) }
+                if let blurData { SharedStore.writeCoverBlurred(blurData) }
+                WidgetCenter.shared.reloadTimelines(ofKind: SharedStore.widgetKind)
             }
         }
     }

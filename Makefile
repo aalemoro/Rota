@@ -1,13 +1,15 @@
-APP_NAME   = Rota
-VERSION    = 2.0.0
-BUILD_DIR  = .build/release
-APP_DIR    = build/$(APP_NAME).app
+APP_NAME    = Rota
+WIDGET_NAME = RotaWidgetExtension
+VERSION     = 2.1.0
+BUILD_DIR   = .build/release
+APP_DIR     = build/$(APP_NAME).app
+APPEX_DIR   = $(APP_DIR)/Contents/PlugIns/$(WIDGET_NAME).appex
 
 .PHONY: all build icon app install run zip clean
 
 all: app
 
-## Compile the Swift executable (release).
+## Compile both the app and the widget extension (release).
 build:
 	swift build -c release
 
@@ -18,16 +20,22 @@ build/AppIcon.icns: design/AppIcon.iconset
 	@mkdir -p build
 	iconutil -c icns design/AppIcon.iconset -o build/AppIcon.icns
 
-## Assemble a signed (ad-hoc) .app bundle in ./build.
+## Assemble a signed (ad-hoc) .app bundle with the widget extension inside.
 app: build icon
 	@rm -rf "$(APP_DIR)"
 	@mkdir -p "$(APP_DIR)/Contents/MacOS" "$(APP_DIR)/Contents/Resources"
+	@mkdir -p "$(APPEX_DIR)/Contents/MacOS" "$(APPEX_DIR)/Contents/Resources"
 	@cp "$(BUILD_DIR)/$(APP_NAME)" "$(APP_DIR)/Contents/MacOS/$(APP_NAME)"
+	@cp "$(BUILD_DIR)/$(WIDGET_NAME)" "$(APPEX_DIR)/Contents/MacOS/$(WIDGET_NAME)"
 	@cp build/AppIcon.icns "$(APP_DIR)/Contents/Resources/AppIcon.icns"
+	@cp build/AppIcon.icns "$(APPEX_DIR)/Contents/Resources/AppIcon.icns"
 	@sed -e "s/@VERSION@/$(VERSION)/g" scripts/Info.plist > "$(APP_DIR)/Contents/Info.plist"
+	@sed -e "s/@VERSION@/$(VERSION)/g" scripts/WidgetInfo.plist > "$(APPEX_DIR)/Contents/Info.plist"
 	@printf 'APPL????' > "$(APP_DIR)/Contents/PkgInfo"
+	@printf 'XPC!????' > "$(APPEX_DIR)/Contents/PkgInfo"
+	@codesign --force --sign - --entitlements scripts/widget.entitlements "$(APPEX_DIR)"
 	@codesign --force --sign - "$(APP_DIR)"
-	@echo "✅  Built $(APP_DIR)"
+	@echo "✅  Built $(APP_DIR) (widget extension included)"
 
 ## Copy the app into /Applications (falls back to ~/Applications).
 install: app

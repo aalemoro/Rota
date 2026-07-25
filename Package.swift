@@ -4,12 +4,22 @@ import PackageDescription
 let package = Package(
     name: "Rota",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     targets: [
+        .target(
+            name: "RotaKit",
+            path: "Sources/RotaKit"
+        ),
         .executableTarget(
             name: "Rota",
+            dependencies: ["RotaKit"],
             path: "Sources/Rota"
+        ),
+        .executableTarget(
+            name: "RotaWidgetExtension",
+            dependencies: ["RotaKit"],
+            path: "Sources/RotaWidgetExtension"
         )
     ]
 )
