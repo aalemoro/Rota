@@ -201,7 +201,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Panel
 
     private func setUpPanel() {
-        let size = NSSize(width: 320, height: 358)
+        // Square, sized like a native "large" desktop widget.
+        let size = NSSize(width: 342, height: 342)
         panel = RotaPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel, .resizable],
@@ -209,9 +210,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             defer: false
         )
         panel.store = store
-        panel.minSize = NSSize(width: 272, height: 304)
-        panel.maxSize = NSSize(width: 600, height: 671)
-        panel.contentAspectRatio = size
+        panel.minSize = NSSize(width: 250, height: 250)
+        panel.maxSize = NSSize(width: 540, height: 540)
+        panel.contentAspectRatio = NSSize(width: 1, height: 1)
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -227,11 +228,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         host.frame = NSRect(origin: .zero, size: size)
         panel.contentView = host
 
-        panel.setFrameAutosaveName("RotaPanel")
+        // New autosave key for the square era — ignores pre-square frames.
+        panel.setFrameAutosaveName("RotaPanelSquare")
         let visibleSomewhere = NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) }
-        if !visibleSomewhere { panel.center() }
+        if !visibleSomewhere || panel.frame.origin == .zero {
+            placeDefault()
+        }
 
         panel.orderFrontRegardless()
+    }
+
+    /// Default home: bottom-left corner of the desktop, native-widget margin.
+    private func placeDefault() {
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        let margin: CGFloat = 24
+        panel.setFrameOrigin(NSPoint(x: visible.minX + margin, y: visible.minY + margin))
     }
 
     /// Desktop-widget placement: just above the desktop icons, below every
