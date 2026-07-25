@@ -42,6 +42,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         setUpStatusItem()
         store.start()
 
+        // First run: register as a login item, so the widget is simply
+        // *there* after every reboot, like a native desktop widget.
+        if UserDefaults.standard.object(forKey: "didSetupLoginItem") == nil {
+            UserDefaults.standard.set(true, forKey: "didSetupLoginItem")
+            try? SMAppService.mainApp.register()
+        }
+
         // Keep the window shadow in sync with the artwork-driven content.
         store.$artwork
             .receive(on: DispatchQueue.main)
@@ -109,9 +116,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let visible = screen.visibleFrame
-        let size = panel.frame.size
+        var size = panel.frame.size
         let margin = CGFloat(Double(params["margin"] ?? "") ?? 32)
         var origin = panel.frame.origin
+
+        // Optional exact size (w/h), e.g. to mirror a native widget's frame.
+        if let wText = params["w"], let w = Double(wText), w >= 100 {
+            size.width = CGFloat(w)
+        }
+        if let hText = params["h"], let h = Double(hText), h >= 100 {
+            size.height = CGFloat(h)
+        }
 
         if let corner = params["corner"]?.lowercased() {
             switch corner {
@@ -136,7 +151,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             origin.y = visible.maxY - size.height - CGFloat(y)
         }
 
-        panel.setFrameOrigin(origin)
+        // Global top-left coordinates (CGWindow-style), for pixel-exact
+        // alignment with other windows or native widgets.
+        if let primary = NSScreen.screens.first {
+            if let gxText = params["gx"], let gx = Double(gxText) {
+                origin.x = CGFloat(gx)
+            }
+            if let gyText = params["gy"], let gy = Double(gyText) {
+                origin.y = primary.frame.maxY - CGFloat(gy) - size.height
+            }
+        }
+
+        panel.setFrame(NSRect(origin: origin, size: size), display: true, animate: false)
         panel.orderFrontRegardless()
     }
 
@@ -255,7 +281,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.level = .floating
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         } else {
-            panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+            // +3 keeps it above macOS's own desktop widgets (which sit at
+            // desktopIconWindow+2) while staying far below normal windows.
+            panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 3)
             panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
         }
     }
