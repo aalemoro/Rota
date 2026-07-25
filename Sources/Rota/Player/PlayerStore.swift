@@ -47,11 +47,21 @@ final class PlayerStore: ObservableObject {
         }
     }
 
+    /// Native-widget behaviour: when locked (default) the widget stays put —
+    /// dragging the cover does nothing. Move it with ⌘-drag or the menu.
+    @Published var positionLocked: Bool = UserDefaults.standard.object(forKey: "positionLocked") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(positionLocked, forKey: "positionLocked")
+            onPositionLockChanged?(positionLocked)
+        }
+    }
+
     let lyrics = LyricsController()
 
     /// Wired by the AppDelegate.
     var onHide: (() -> Void)?
     var onKeepOnTopChanged: ((Bool) -> Void)?
+    var onPositionLockChanged: ((Bool) -> Void)?
 
     // MARK: Private
 

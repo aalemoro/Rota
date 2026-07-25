@@ -44,6 +44,9 @@ out of the Dock.
 - 🖥 **A true desktop widget** — it sits just above your wallpaper, under your
   windows, exactly like macOS's own widgets. Hit 📌 to float it above
   everything instead. Visible on every Space either way.
+- 🧊 **Static, like a real widget** — its position is locked by default so a
+  stray drag never moves it. Relocate with **⌘-drag**, the menu, or
+  `rota://move`.
 - ⌨️ **Keyboard shortcuts** — click the widget, then:
   `space` play/pause · `←`/`→` previous/next · `↑`/`↓` volume · `L` lyrics ·
   `F` favourite · `esc` close lyrics / hide.
@@ -111,7 +114,7 @@ make clean   # remove all build products
 
 | You want to… | Do this |
 |---|---|
-| Move the widget | Drag it anywhere on the cover |
+| Move the widget | **⌘-drag** it (position is locked by default, like native widgets — unlock from the menu to drag freely) |
 | See the toolbar | Hover the widget — close dot, lyrics, volume, pin |
 | Lyrics mode | Hover → 💬 button, or press `L`, or right-click → *Show Lyrics* |
 | Jump inside a song | Drag the seek bar, or click a lyrics line |

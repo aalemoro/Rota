@@ -34,6 +34,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.onKeepOnTopChanged = { [weak self] onTop in
             self?.applyPlacement(floating: onTop)
         }
+        store.onPositionLockChanged = { [weak self] locked in
+            self?.panel?.isMovableByWindowBackground = !locked
+        }
 
         setUpPanel()
         setUpStatusItem()
@@ -84,6 +87,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             snapshotWidget()
         case "move":
             moveWidget(url)
+        case "lock":
+            store.positionLocked = true
+        case "unlock":
+            store.positionLocked = false
         default:
             break
         }
@@ -208,7 +215,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
-        panel.isMovableByWindowBackground = true
+        panel.isMovableByWindowBackground = !store.positionLocked
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = false
         panel.acceptsMouseMovedEvents = true
@@ -272,6 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(item("Lyrics", #selector(toggleLyrics)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item("Float Above Windows", #selector(toggleKeepOnTop)))
+        menu.addItem(item("Lock Position", #selector(togglePositionLock)))
         menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin)))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(item("Open Apple Music", #selector(openMusic)))
@@ -297,6 +305,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleKeepOnTop() {
         store.keepOnTop.toggle()
+    }
+
+    @objc private func togglePositionLock() {
+        store.positionLocked.toggle()
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -341,6 +353,8 @@ extension AppDelegate: NSMenuDelegate {
                 item.state = store.showLyrics ? .on : .off
             case #selector(toggleKeepOnTop):
                 item.state = store.keepOnTop ? .on : .off
+            case #selector(togglePositionLock):
+                item.state = store.positionLocked ? .on : .off
             case #selector(toggleLaunchAtLogin):
                 item.state = SMAppService.mainApp.status == .enabled ? .on : .off
             default:
@@ -359,6 +373,16 @@ final class RotaPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+
+    /// With the position locked (native-widget style), ⌘-drag still moves
+    /// the widget — the same "explicit gesture" idea as macOS's edit mode.
+    override func mouseDown(with event: NSEvent) {
+        if let store, store.positionLocked, event.modifierFlags.contains(.command) {
+            performDrag(with: event)
+            return
+        }
+        super.mouseDown(with: event)
+    }
 
     override func keyDown(with event: NSEvent) {
         guard let store else { return super.keyDown(with: event) }

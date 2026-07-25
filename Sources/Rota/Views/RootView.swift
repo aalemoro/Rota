@@ -48,6 +48,7 @@ struct RootView: View {
             Divider()
             Button(store.showLyrics ? "Hide Lyrics" : "Show Lyrics") { store.showLyrics.toggle() }
             Button(store.keepOnTop ? "Stick to Desktop" : "Float Above Windows") { store.keepOnTop.toggle() }
+            Button(store.positionLocked ? "Unlock Position" : "Lock Position") { store.positionLocked.toggle() }
             Divider()
             Button("Open Apple Music") { store.openMusicApp() }
             Button("Hide Widget") { store.onHide?() }
