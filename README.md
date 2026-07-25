@@ -130,6 +130,8 @@ open "rota://lyrics"      # open lyrics mode       rota://player closes it
 open "rota://toggle"      # show / hide the widget rota://favorite ⭐ the song
 open "rota://dump"        # write player state to /tmp/rota_state.json (JSON)
 open "rota://snapshot"    # save a PNG of the widget to /tmp/rota_snapshot.png
+open "rota://move?corner=topleft&margin=40"   # park it in a corner
+open "rota://move?x=60&y=80"                  # or at exact coordinates
 ```
 
 ## 🔒 Privacy & permissions

@@ -82,9 +82,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             dumpState()
         case "snapshot":
             snapshotWidget()
+        case "move":
+            moveWidget(url)
         default:
             break
         }
+    }
+
+    /// rota://move?corner=topleft|topright|bottomleft|bottomright|center&margin=32
+    /// rota://move?x=40&y=60   (coordinates from the screen's top-left corner)
+    private func moveWidget(_ url: URL) {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let screen = panel.screen ?? NSScreen.main
+        else { return }
+
+        var params: [String: String] = [:]
+        for item in components.queryItems ?? [] {
+            params[item.name.lowercased()] = item.value ?? ""
+        }
+
+        let visible = screen.visibleFrame
+        let size = panel.frame.size
+        let margin = CGFloat(Double(params["margin"] ?? "") ?? 32)
+        var origin = panel.frame.origin
+
+        if let corner = params["corner"]?.lowercased() {
+            switch corner {
+            case "topleft":
+                origin = NSPoint(x: visible.minX + margin, y: visible.maxY - size.height - margin)
+            case "topright":
+                origin = NSPoint(x: visible.maxX - size.width - margin, y: visible.maxY - size.height - margin)
+            case "bottomleft":
+                origin = NSPoint(x: visible.minX + margin, y: visible.minY + margin)
+            case "bottomright":
+                origin = NSPoint(x: visible.maxX - size.width - margin, y: visible.minY + margin)
+            case "center":
+                origin = NSPoint(x: visible.midX - size.width / 2, y: visible.midY - size.height / 2)
+            default:
+                break
+            }
+        }
+        if let xText = params["x"], let x = Double(xText) {
+            origin.x = visible.minX + CGFloat(x)
+        }
+        if let yText = params["y"], let y = Double(yText) {
+            origin.y = visible.maxY - size.height - CGFloat(y)
+        }
+
+        panel.setFrameOrigin(origin)
+        panel.orderFrontRegardless()
     }
 
     /// Renders the widget's own view hierarchy to /tmp/rota_snapshot.png
