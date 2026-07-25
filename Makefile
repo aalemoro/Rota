@@ -1,6 +1,6 @@
 APP_NAME    = Rota
 WIDGET_NAME = RotaWidgetExtension
-VERSION     = 2.1.0
+VERSION     = 2.2.0
 BUILD_DIR   = .build/release
 APP_DIR     = build/$(APP_NAME).app
 APPEX_DIR   = $(APP_DIR)/Contents/PlugIns/$(WIDGET_NAME).appex

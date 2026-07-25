@@ -49,9 +49,9 @@ final class PlayerStore: ObservableObject {
         }
     }
 
-    /// Native-widget behaviour: when locked (default) the widget stays put —
-    /// dragging the cover does nothing. Move it with ⌘-drag or the menu.
-    @Published var positionLocked: Bool = UserDefaults.standard.object(forKey: "positionLocked") as? Bool ?? true {
+    /// When locked, dragging the cover does nothing (move with ⌘-drag or the
+    /// menu). Off by default: drags snap into the native widget grid anyway.
+    @Published var positionLocked: Bool = UserDefaults.standard.object(forKey: "positionLocked") as? Bool ?? false {
         didSet {
             UserDefaults.standard.set(positionLocked, forKey: "positionLocked")
             onPositionLockChanged?(positionLocked)
@@ -262,11 +262,35 @@ final class PlayerStore: ObservableObject {
             guard let self else { return }
             // Ignore stale replies after further track changes.
             guard self.artworkTrackID == id else { return }
-            self.artwork = image
-            self.artworkBlurred = nil
             if let image {
-                self.artworkCache.setObject(image, forKey: id as NSString)
-                self.bakeBlur(for: image, id: id)
+                self.applyArtwork(image, for: id)
+            } else {
+                // Streaming tracks often expose no artwork via scripting —
+                // resolve the cover from Apple's catalogue instead.
+                self.artwork = nil
+                self.artworkBlurred = nil
+                self.fetchArtworkOnline(for: id)
+            }
+        }
+    }
+
+    private func applyArtwork(_ image: NSImage, for id: String) {
+        artwork = image
+        artworkBlurred = nil
+        artworkCache.setObject(image, forKey: id as NSString)
+        bakeBlur(for: image, id: id)
+    }
+
+    private func fetchArtworkOnline(for id: String) {
+        let snap = snapshot
+        guard snap.persistentID == id, snap.hasTrack else { return }
+        Task { [weak self] in
+            let image = await ITunesArtworkService.fetch(
+                artist: snap.artist, album: snap.album, title: snap.title
+            )
+            await MainActor.run { [weak self] in
+                guard let self, self.artworkTrackID == id, let image else { return }
+                self.applyArtwork(image, for: id)
             }
         }
     }

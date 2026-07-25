@@ -2,13 +2,37 @@
 //  AppDelegate.swift
 //  Rota
 //
-//  Owns the floating panel, the menu bar item and app lifecycle.
+//  Owns the floating panel and app lifecycle. No Dock icon, no menu bar
+//  item: everything lives in the widget's right-click menu, and reopening
+//  the app (Spotlight, Launchpad) brings the widget back.
 //
 
 import AppKit
 import SwiftUI
 import Combine
 import ServiceManagement
+
+// MARK: - Widget sizes (the three official desktop-widget footprints)
+
+enum WidgetSize: String, CaseIterable {
+    case small, medium, large
+
+    var dimensions: NSSize {
+        switch self {
+        case .small: return NSSize(width: 180, height: 180)
+        case .medium: return NSSize(width: 360, height: 180)
+        case .large: return NSSize(width: 360, height: 360)
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        }
+    }
+}
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
@@ -17,8 +41,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = PlayerStore()
 
     private var panel: RotaPanel!
-    private var statusItem: NSStatusItem!
     private var cancellables = Set<AnyCancellable>()
+    private var snapWork: DispatchWorkItem?
+    private var suppressSnap = false
+
+    /// The native desktop-widget grid, measured from macOS's own widgets:
+    /// slots start 8 pt from the left, 41 pt from the top, on a 180 pt pitch.
+    private let gridOrigin = NSPoint(x: 8, y: 41)
+    private let gridPitch: CGFloat = 180
 
     override init() {
         super.init()
@@ -39,7 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         setUpPanel()
-        setUpStatusItem()
         store.start()
 
         // First run: register as a login item, so the widget is simply
@@ -58,6 +87,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// Launching Rota again (Spotlight, Launchpad, `open -a Rota`) while it's
+    /// running brings the widget back — the recovery path now that there is
+    /// no menu bar icon.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showWidget()
+        return false
     }
 
     // MARK: - rota:// URL scheme (scripting & automation)
@@ -88,23 +125,201 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             store.previousTrack()
         case "favorite":
             store.toggleFavorite()
+        case "lock":
+            store.positionLocked = true
+        case "unlock":
+            store.positionLocked = false
+        case "size":
+            if let value = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                .queryItems?.first(where: { $0.name.lowercased() == "value" })?.value,
+               let size = WidgetSize(rawValue: value.lowercased()) {
+                setWidgetSize(size)
+            }
         case "dump":
             dumpState()
         case "snapshot":
             snapshotWidget()
         case "move":
             moveWidget(url)
-        case "lock":
-            store.positionLocked = true
-        case "unlock":
-            store.positionLocked = false
         default:
             break
         }
     }
 
+    // MARK: - Panel
+
+    private func setUpPanel() {
+        let size = currentWidgetSize.dimensions
+        panel = RotaPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.store = store
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.isMovableByWindowBackground = !store.positionLocked
+        panel.hidesOnDeactivate = false
+        panel.becomesKeyOnlyIfNeeded = false
+        panel.acceptsMouseMovedEvents = true
+        panel.isReleasedWhenClosed = false
+        panel.animationBehavior = .utilityWindow
+        applyPlacement(floating: store.keepOnTop)
+
+        let host = NSHostingView(rootView: RootView().environmentObject(store))
+        host.frame = NSRect(origin: .zero, size: size)
+        panel.contentView = host
+
+        panel.setFrameAutosaveName("RotaPanelSquare")
+        let visibleSomewhere = NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) }
+        if !visibleSomewhere || panel.frame.origin == .zero {
+            placeDefault()
+        }
+
+        // Enforce the chosen fixed size and settle into the native grid.
+        applyWidgetSize(currentWidgetSize, animate: false)
+
+        // Snap into the grid whenever a drag ends, like real widgets do.
+        NotificationCenter.default.addObserver(
+            forName: NSWindow.didMoveNotification, object: panel, queue: .main
+        ) { [weak self] _ in
+            self?.scheduleSnap()
+        }
+
+        panel.orderFrontRegardless()
+    }
+
+    func toggleWidget() {
+        if panel.isVisible {
+            hideWidget()
+        } else {
+            showWidget()
+        }
+    }
+
+    func showWidget() {
+        panel.orderFrontRegardless()
+        store.pollNow()
+    }
+
+    func hideWidget() {
+        panel.orderOut(nil)
+    }
+
+    /// Desktop-widget placement: above macOS's own desktop widgets (+3;
+    /// they sit at +2) yet far below every normal window. With `floating`
+    /// the widget rides above all windows instead.
+    private func applyPlacement(floating: Bool) {
+        guard let panel else { return }
+        if floating {
+            panel.level = .floating
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        } else {
+            panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 3)
+            panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
+        }
+    }
+
+    /// Default home: bottom-left region of the desktop.
+    private func placeDefault() {
+        guard let screen = panel.screen ?? NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        panel.setFrameOrigin(NSPoint(x: visible.minX + 24, y: visible.minY + 24))
+    }
+
+    // MARK: - Fixed sizes
+
+    var currentWidgetSize: WidgetSize {
+        WidgetSize(rawValue: UserDefaults.standard.string(forKey: "widgetSize") ?? "") ?? .large
+    }
+
+    func setWidgetSize(_ size: WidgetSize) {
+        UserDefaults.standard.set(size.rawValue, forKey: "widgetSize")
+        applyWidgetSize(size, animate: true)
+    }
+
+    private func applyWidgetSize(_ size: WidgetSize, animate: Bool) {
+        let dims = size.dimensions
+        var frame = panel.frame
+        let topY = frame.maxY
+        frame.size = dims
+        frame.origin.y = topY - dims.height
+        setFrameQuietly(snappedToGrid(frame), animate: animate)
+    }
+
+    // MARK: - Native grid snapping
+
+    private func snappedToGrid(_ frame: NSRect) -> NSRect {
+        guard let screen = panel.screen ?? NSScreen.main else { return frame }
+        let originX = screen.frame.minX + gridOrigin.x
+        let fromTop = screen.frame.maxY - frame.maxY
+
+        let column = max(0, round((frame.origin.x - originX) / gridPitch))
+        let row = max(0, round((fromTop - gridOrigin.y) / gridPitch))
+
+        var snapped = frame
+        snapped.origin.x = originX + column * gridPitch
+        snapped.origin.y = screen.frame.maxY - (gridOrigin.y + row * gridPitch) - frame.height
+
+        // Never off the right edge (vertically the grid itself stays on
+        // screen — macOS's own bottom row tucks slightly behind the Dock).
+        if snapped.maxX > screen.frame.maxX - gridOrigin.x {
+            snapped.origin.x = originX + max(0, floor((screen.frame.width - 2 * gridOrigin.x - frame.width) / gridPitch)) * gridPitch
+        }
+        return snapped
+    }
+
+    private func scheduleSnap() {
+        guard !suppressSnap else { return }
+        snapWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.snapNow() }
+        snapWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    private func snapNow() {
+        let target = snappedToGrid(panel.frame)
+        guard target != panel.frame else { return }
+        setFrameQuietly(target, animate: true)
+    }
+
+    private func setFrameQuietly(_ frame: NSRect, animate: Bool) {
+        suppressSnap = true
+        panel.setFrame(frame, display: true, animate: animate)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { [weak self] in
+            self?.suppressSnap = false
+        }
+    }
+
+    // MARK: - Launch at login
+
+    var launchesAtLogin: Bool {
+        SMAppService.mainApp.status == .enabled
+    }
+
+    func toggleLaunchAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSLog("Rota: launch-at-login toggle failed: \(error)")
+        }
+    }
+
+    func openMusic() {
+        store.openMusicApp()
+    }
+
+    // MARK: - rota://move
+
     /// rota://move?corner=topleft|topright|bottomleft|bottomright|center&margin=32
-    /// rota://move?x=40&y=60   (coordinates from the screen's top-left corner)
+    /// rota://move?x=40&y=60          (from the visible area's top-left)
+    /// rota://move?gx=8&gy=581&w=360&h=360   (global CGWindow-style frame)
     private func moveWidget(_ url: URL) {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let screen = panel.screen ?? NSScreen.main
@@ -120,7 +335,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let margin = CGFloat(Double(params["margin"] ?? "") ?? 32)
         var origin = panel.frame.origin
 
-        // Optional exact size (w/h), e.g. to mirror a native widget's frame.
         if let wText = params["w"], let w = Double(wText), w >= 100 {
             size.width = CGFloat(w)
         }
@@ -151,8 +365,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             origin.y = visible.maxY - size.height - CGFloat(y)
         }
 
-        // Global top-left coordinates (CGWindow-style), for pixel-exact
-        // alignment with other windows or native widgets.
         if let primary = NSScreen.screens.first {
             if let gxText = params["gx"], let gx = Double(gxText) {
                 origin.x = CGFloat(gx)
@@ -162,24 +374,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        panel.setFrame(NSRect(origin: origin, size: size), display: true, animate: false)
+        setFrameQuietly(NSRect(origin: origin, size: size), animate: false)
         panel.orderFrontRegardless()
     }
 
-    /// Renders the widget's own view hierarchy to /tmp/rota_snapshot.png
-    /// (retina scale, transparent rounded corners). No screen-recording
-    /// permission needed — the app draws itself.
-    private func snapshotWidget() {
-        guard let view = panel.contentView,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
-        else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
-        guard let data = rep.representation(using: .png, properties: [:]) else { return }
-        try? data.write(to: URL(fileURLWithPath: "/tmp/rota_snapshot.png"))
-    }
+    // MARK: - Debug / scripting helpers
 
-    /// Writes a small JSON state snapshot to /tmp/rota_state.json —
-    /// handy for scripting and for debugging.
     private func dumpState() {
         let s = store.snapshot
         let lyricsDescription: String
@@ -207,11 +407,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "lyrics": lyricsDescription,
             "widgetVisible": panel.isVisible,
             "lyricsMode": store.showLyrics,
+            "widgetSize": currentWidgetSize.rawValue,
             "captureRect": captureRect()
         ]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) {
             try? data.write(to: URL(fileURLWithPath: "/tmp/rota_state.json"))
         }
+    }
+
+    /// Renders the widget's own view hierarchy to /tmp/rota_snapshot.png
+    /// (retina scale, transparent rounded corners). No screen-recording
+    /// permission needed — the app draws itself.
+    private func snapshotWidget() {
+        guard let view = panel.contentView,
+              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds)
+        else { return }
+        view.cacheDisplay(in: view.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return }
+        try? data.write(to: URL(fileURLWithPath: "/tmp/rota_snapshot.png"))
     }
 
     /// The widget's frame in top-left-origin screen coordinates,
@@ -223,190 +436,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let y = screen.frame.maxY - frame.maxY
         return [x, y, frame.width, frame.height]
     }
-
-    // MARK: - Panel
-
-    private func setUpPanel() {
-        // Square, sized like a native "large" desktop widget.
-        let size = NSSize(width: 342, height: 342)
-        panel = RotaPanel(
-            contentRect: NSRect(origin: .zero, size: size),
-            styleMask: [.borderless, .nonactivatingPanel, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        panel.store = store
-        panel.minSize = NSSize(width: 250, height: 250)
-        panel.maxSize = NSSize(width: 540, height: 540)
-        panel.contentAspectRatio = NSSize(width: 1, height: 1)
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.isMovableByWindowBackground = !store.positionLocked
-        panel.hidesOnDeactivate = false
-        panel.becomesKeyOnlyIfNeeded = false
-        panel.acceptsMouseMovedEvents = true
-        panel.isReleasedWhenClosed = false
-        panel.animationBehavior = .utilityWindow
-        applyPlacement(floating: store.keepOnTop)
-
-        let host = NSHostingView(rootView: RootView().environmentObject(store))
-        host.frame = NSRect(origin: .zero, size: size)
-        panel.contentView = host
-
-        // New autosave key for the square era — ignores pre-square frames.
-        panel.setFrameAutosaveName("RotaPanelSquare")
-        let visibleSomewhere = NSScreen.screens.contains { $0.visibleFrame.intersects(panel.frame) }
-        if !visibleSomewhere || panel.frame.origin == .zero {
-            placeDefault()
-        }
-
-        panel.orderFrontRegardless()
-    }
-
-    /// Default home: bottom-left corner of the desktop, native-widget margin.
-    private func placeDefault() {
-        guard let screen = panel.screen ?? NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let margin: CGFloat = 24
-        panel.setFrameOrigin(NSPoint(x: visible.minX + margin, y: visible.minY + margin))
-    }
-
-    /// Desktop-widget placement: just above the desktop icons, below every
-    /// normal window — exactly where macOS's own desktop widgets live.
-    /// With `floating` the widget rides above all windows instead.
-    private func applyPlacement(floating: Bool) {
-        guard let panel else { return }
-        if floating {
-            panel.level = .floating
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        } else {
-            // +3 keeps it above macOS's own desktop widgets (which sit at
-            // desktopIconWindow+2) while staying far below normal windows.
-            panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 3)
-            panel.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        }
-    }
-
-    @objc func toggleWidget() {
-        if panel.isVisible {
-            hideWidget()
-        } else {
-            showWidget()
-        }
-    }
-
-    func showWidget() {
-        panel.orderFrontRegardless()
-        store.pollNow()
-    }
-
-    func hideWidget() {
-        panel.orderOut(nil)
-    }
-
-    // MARK: - Menu bar
-
-    private func setUpStatusItem() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "waveform.circle.fill",
-                                   accessibilityDescription: "Rota")
-        }
-
-        let menu = NSMenu()
-        menu.addItem(item("Show / Hide Rota", #selector(toggleWidget)))
-        menu.addItem(item("Lyrics", #selector(toggleLyrics)))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(item("Float Above Windows", #selector(toggleKeepOnTop)))
-        menu.addItem(item("Lock Position", #selector(togglePositionLock)))
-        menu.addItem(item("Launch at Login", #selector(toggleLaunchAtLogin)))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(item("Open Apple Music", #selector(openMusic)))
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(item("About Rota", #selector(showAbout)))
-        menu.addItem(item("Quit Rota", #selector(quit), key: "q"))
-        menu.delegate = self
-        statusItem.menu = menu
-    }
-
-    private func item(_ title: String, _ action: Selector, key: String = "") -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-        item.target = self
-        return item
-    }
-
-    // MARK: - Actions
-
-    @objc private func toggleLyrics() {
-        store.showLyrics.toggle()
-        if !panel.isVisible { showWidget() }
-    }
-
-    @objc private func toggleKeepOnTop() {
-        store.keepOnTop.toggle()
-    }
-
-    @objc private func togglePositionLock() {
-        store.positionLocked.toggle()
-    }
-
-    @objc private func toggleLaunchAtLogin() {
-        do {
-            if SMAppService.mainApp.status == .enabled {
-                try SMAppService.mainApp.unregister()
-            } else {
-                try SMAppService.mainApp.register()
-            }
-        } catch {
-            NSLog("Rota: launch-at-login toggle failed: \(error)")
-        }
-    }
-
-    @objc private func openMusic() {
-        store.openMusicApp()
-    }
-
-    @objc private func showAbout() {
-        NSApp.activate(ignoringOtherApps: true)
-        NSApp.orderFrontStandardAboutPanel(options: [
-            .applicationName: "Rota",
-            .credits: NSAttributedString(
-                string: "A floating Apple Music widget with synced lyrics.\nrota • latin for “wheel”",
-                attributes: [.font: NSFont.systemFont(ofSize: 11)]
-            )
-        ])
-    }
-
-    @objc private func quit() {
-        NSApp.terminate(nil)
-    }
-}
-
-// MARK: - Menu validation (checkmarks)
-
-extension AppDelegate: NSMenuDelegate {
-    func menuNeedsUpdate(_ menu: NSMenu) {
-        for item in menu.items {
-            switch item.action {
-            case #selector(toggleLyrics):
-                item.state = store.showLyrics ? .on : .off
-            case #selector(toggleKeepOnTop):
-                item.state = store.keepOnTop ? .on : .off
-            case #selector(togglePositionLock):
-                item.state = store.positionLocked ? .on : .off
-            case #selector(toggleLaunchAtLogin):
-                item.state = SMAppService.mainApp.status == .enabled ? .on : .off
-            default:
-                break
-            }
-        }
-    }
 }
 
 // MARK: - Panel
 
-/// Borderless, non-activating floating panel that hosts the widget.
+/// Borderless, non-activating panel that hosts the widget.
 final class RotaPanel: NSPanel {
 
     weak var store: PlayerStore?
@@ -414,8 +448,8 @@ final class RotaPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    /// With the position locked (native-widget style), ⌘-drag still moves
-    /// the widget — the same "explicit gesture" idea as macOS's edit mode.
+    /// With the position locked, ⌘-drag still moves the widget —
+    /// the same "explicit gesture" idea as macOS's widget edit mode.
     override func mouseDown(with event: NSEvent) {
         if let store, store.positionLocked, event.modifierFlags.contains(.command) {
             performDrag(with: event)

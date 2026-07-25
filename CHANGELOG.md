@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.2.0 — 2026-07-25
+
+Behaves like an official desktop widget now.
+
+- 📐 **Three fixed sizes** — small (180), medium (360×180), large (360×360),
+  matching macOS's own widget footprints. Pick from right-click → *Widget
+  Size*; free-form resizing is gone. The layout adapts to each size.
+- 🧲 **Grid snapping** — drag the widget and it settles into the native
+  desktop-widget grid slots, exactly like the system ones.
+- 🖼 **Artwork always resolves** — when a streaming track exposes no cover
+  through the Music app, Rota fetches it from Apple's public iTunes Search
+  API automatically.
+- 🚫 **Removed the red close dot** and **the menu bar icon** — the widget is
+  chrome-free like the official ones. Everything (sizes, lyrics, login,
+  hide, quit) lives in the right-click menu; reopen Rota from Spotlight to
+  bring the widget back after hiding it.
+
 ## 2.1.0 — 2026-07-25
 
 - 🧩 **Real WidgetKit widget** — add *Rota → Now Playing* from macOS's widget

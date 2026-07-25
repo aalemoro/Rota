@@ -54,8 +54,14 @@ out of the Dock.
 - ⌨️ **Keyboard shortcuts** — click the widget, then:
   `space` play/pause · `←`/`→` previous/next · `↑`/`↓` volume · `L` lyrics ·
   `F` favourite · `esc` close lyrics / hide.
-- 🫥 **No Dock icon** — Rota lives in the menu bar (🌊 icon) with a tidy menu:
-  show/hide, lyrics, keep-on-top, launch at login, quit.
+- 📐 **Three official widget sizes** — small, medium and large (the same
+  footprints as macOS's own widgets), switched from the right-click menu.
+  Drag the widget and it **snaps into the native widget grid**.
+- 🖼 **Covers always load** — local artwork first; if a streaming track
+  exposes none, Rota resolves it from Apple's catalogue automatically.
+- 🫥 **Chrome-free, like a real widget** — no Dock icon, no menu bar item, no
+  window buttons. Everything lives in the right-click menu; launch Rota
+  again (Spotlight) to bring the widget back after hiding it.
 - 🪶 **Native and tiny** — pure Swift + SwiftUI, zero third-party dependencies,
   no Electron, ~2 MB on disk.
 
@@ -118,13 +124,14 @@ make clean   # remove all build products
 
 | You want to… | Do this |
 |---|---|
-| Move the widget | **⌘-drag** it (position is locked by default, like native widgets — unlock from the menu to drag freely) |
-| See the toolbar | Hover the widget — close dot, lyrics, volume, pin |
+| Change size | Right-click → **Widget Size** → Small / Medium / Large |
+| Move the widget | Drag it — it snaps into the native widget grid (lock it from the menu; ⌘-drag still works when locked) |
+| See the controls | Hover the widget — at rest it's pure album art |
 | Lyrics mode | Hover → 💬 button, or press `L`, or right-click → *Show Lyrics* |
 | Jump inside a song | Drag the seek bar, or click a lyrics line |
 | Bring it above your windows | Hover → 📌 pin (click again to send it back to the desktop) |
-| Hide the widget | Red dot, or `esc` — bring it back from the menu bar icon |
-| Start at login | Menu bar icon → *Launch at Login* |
+| Hide / bring back | Right-click → *Hide Rota* (or `esc`) · open **Rota** from Spotlight to bring it back |
+| Start at login | Right-click → *Start at Login* (on by default after first launch) |
 
 ### ⚡ Scripting (`rota://` URLs)
 
@@ -148,8 +155,9 @@ open "rota://move?x=60&y=80"                  # or at exact coordinates
 - Lyrics lookups send only **title, artist, album and duration** to
   [LRCLIB](https://lrclib.net) over HTTPS — no account, no keys, no tracking.
   Results are cached locally in `~/Library/Caches/Rota`.
-- Nothing else ever leaves your Mac. No analytics, no network calls besides
-  lyrics.
+- When a streaming track has no local artwork, Rota asks Apple's public
+  **iTunes Search API** for the cover (artist + album only, HTTPS).
+- Nothing else ever leaves your Mac. No analytics, no other network calls.
 
 If you denied the permission by accident:
 **System Settings → Privacy & Security → Automation → Rota → enable Music** —
@@ -195,7 +203,7 @@ Sources/Rota
 | Controls do nothing | Grant the Automation permission (see above) |
 | No lyrics for a song | LRCLIB simply may not have them — the words view falls back or tells you |
 | "Rota can't be opened" on first launch | Right-click → **Open**, or the `xattr` command in the install section |
-| Widget vanished | Menu bar 🌊 icon → *Show / Hide Rota* |
+| Widget vanished | Open **Rota** from Spotlight / Launchpad — the widget pops right back |
 
 ## 🗺 Roadmap
 

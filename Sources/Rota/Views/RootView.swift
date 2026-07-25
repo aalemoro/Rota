@@ -2,20 +2,28 @@
 //  RootView.swift
 //  Rota
 //
-//  The widget shell: artwork background, hover chrome, mode switching.
+//  The widget shell: artwork background, hover chrome, size-aware layout.
 //
 
 import SwiftUI
+
+/// Layout class derived from the actual widget footprint.
+enum WidgetSizeMode {
+    case small   // 180 × 180
+    case wide    // 360 × 180
+    case large   // 360 × 360
+}
 
 struct RootView: View {
 
     @EnvironmentObject var store: PlayerStore
     @State private var hovering = false
 
-    private let cornerRadius: CGFloat = 24
+    private let cornerRadius: CGFloat = 22
 
     var body: some View {
         GeometryReader { geo in
+            let mode = sizeMode(for: geo.size)
             ZStack {
                 ArtworkBackground(
                     artwork: store.artwork,
@@ -24,10 +32,10 @@ struct RootView: View {
                     chrome: hovering || store.isScrubbing
                 )
 
-                content
+                content(mode: mode)
                     .frame(width: geo.size.width, height: geo.size.height)
 
-                TopBar(hovering: hovering)
+                TopBar(hovering: hovering, mode: mode)
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
@@ -42,24 +50,17 @@ struct RootView: View {
         .animation(.spring(response: 0.42, dampingFraction: 0.86), value: store.showLyrics)
         .animation(.easeInOut(duration: 0.35), value: store.availability)
         .preferredColorScheme(.dark)
-        .contextMenu {
-            Button(store.snapshot.state == .playing ? "Pause" : "Play") { store.togglePlayPause() }
-            Button("Next Track") { store.nextTrack() }
-            Button("Previous Track") { store.previousTrack() }
-            Divider()
-            Button(store.showLyrics ? "Hide Lyrics" : "Show Lyrics") { store.showLyrics.toggle() }
-            Button(store.keepOnTop ? "Stick to Desktop" : "Float Above Windows") { store.keepOnTop.toggle() }
-            Button(store.positionLocked ? "Unlock Position" : "Lock Position") { store.positionLocked.toggle() }
-            Divider()
-            Button("Open Apple Music") { store.openMusicApp() }
-            Button("Hide Widget") { store.onHide?() }
-            Divider()
-            Button("Quit Rota") { NSApp.terminate(nil) }
-        }
+        .contextMenu { menuItems }
+    }
+
+    private func sizeMode(for size: CGSize) -> WidgetSizeMode {
+        if size.width < 240 { return .small }
+        if size.height < 240 { return .wide }
+        return .large
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(mode: WidgetSizeMode) -> some View {
         switch store.availability {
         case .musicNotRunning:
             IdleView(
@@ -67,6 +68,7 @@ struct RootView: View {
                 title: "Music isn't running",
                 caption: "Open Apple Music to get started.",
                 buttonLabel: "Open Music",
+                compact: mode != .large,
                 action: { store.openMusicApp() }
             )
         case .needsAutomationPermission:
@@ -75,14 +77,15 @@ struct RootView: View {
                 title: "Permission needed",
                 caption: "Allow Rota to control Music in\nSystem Settings → Privacy & Security → Automation.",
                 buttonLabel: "Open Settings",
+                compact: mode != .large,
                 action: { store.openAutomationSettings() }
             )
         case .ready:
             if store.showLyrics {
-                LyricsView()
+                LyricsView(mode: mode)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             } else if store.snapshot.hasTrack {
-                PlayerView(hovering: hovering)
+                PlayerView(hovering: hovering, mode: mode)
                     .transition(.opacity)
             } else {
                 IdleView(
@@ -90,10 +93,42 @@ struct RootView: View {
                     title: "Nothing playing",
                     caption: "Pick a song in Apple Music.",
                     buttonLabel: "Open Music",
+                    compact: mode != .large,
                     action: { store.openMusicApp() }
                 )
             }
         }
+    }
+
+    // MARK: - Right-click menu (the widget's control centre)
+
+    @ViewBuilder
+    private var menuItems: some View {
+        Button(store.snapshot.state == .playing ? "Pause" : "Play") { store.togglePlayPause() }
+        Button("Next Track") { store.nextTrack() }
+        Button("Previous Track") { store.previousTrack() }
+        Divider()
+        Button(store.showLyrics ? "Hide Lyrics" : "Show Lyrics") { store.showLyrics.toggle() }
+        Divider()
+        Menu("Widget Size") {
+            ForEach(WidgetSize.allCases, id: \.self) { size in
+                Toggle(size.label, isOn: Binding(
+                    get: { AppDelegate.shared?.currentWidgetSize == size },
+                    set: { _ in AppDelegate.shared?.setWidgetSize(size) }
+                ))
+            }
+        }
+        Button(store.keepOnTop ? "Stick to Desktop" : "Float Above Windows") { store.keepOnTop.toggle() }
+        Button(store.positionLocked ? "Unlock Position" : "Lock Position") { store.positionLocked.toggle() }
+        Toggle("Start at Login", isOn: Binding(
+            get: { AppDelegate.shared?.launchesAtLogin ?? false },
+            set: { _ in AppDelegate.shared?.toggleLaunchAtLogin() }
+        ))
+        Divider()
+        Button("Open Apple Music") { store.openMusicApp() }
+        Button("Hide Rota") { store.onHide?() }
+        Divider()
+        Button("Quit Rota") { NSApp.terminate(nil) }
     }
 }
 
@@ -113,9 +148,6 @@ struct ArtworkBackground: View {
             ZStack {
                 if let artwork {
                     if dimmed {
-                        // Lyrics mode — the whole cover melts into a colour wash.
-                        // The blur is pre-baked with CoreImage (see PlayerStore),
-                        // so it renders identically everywhere.
                         Image(nsImage: blurred ?? artwork)
                             .resizable()
                             .scaledToFill()
@@ -123,8 +155,6 @@ struct ArtworkBackground: View {
                             .clipped()
                             .overlay(Color.black.opacity(0.42))
                     } else {
-                        // Player mode — sharp cover with a progressive melt
-                        // into the control area, like the Music mini-player.
                         Image(nsImage: artwork)
                             .resizable()
                             .interpolation(.high)
@@ -185,17 +215,16 @@ struct TopBar: View {
 
     @EnvironmentObject var store: PlayerStore
     var hovering: Bool
+    var mode: WidgetSizeMode
 
     @State private var volumeOpen = false
 
     var body: some View {
         VStack {
             HStack(spacing: 10) {
-                CloseDot { store.onHide?() }
-
                 Spacer(minLength: 0)
 
-                if store.availability == .ready {
+                if store.availability == .ready, mode != .small {
                     HStack(spacing: 4) {
                         GlassIconButton(
                             symbol: store.showLyrics ? "quote.bubble.fill" : "quote.bubble",
@@ -223,7 +252,7 @@ struct TopBar: View {
                         GlassIconButton(
                             symbol: store.keepOnTop ? "pin.fill" : "pin",
                             active: store.keepOnTop,
-                            help: store.keepOnTop ? "Floating above windows — click to stick to the desktop" : "On the desktop — click to float above windows"
+                            help: store.keepOnTop ? "Floating — click to stick to the desktop" : "On the desktop — click to float above windows"
                         ) {
                             store.keepOnTop.toggle()
                         }
@@ -234,8 +263,8 @@ struct TopBar: View {
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5))
                 }
             }
-            .padding(.horizontal, 12)
-            .padding(.top, 12)
+            .padding(.horizontal, 10)
+            .padding(.top, 10)
 
             Spacer()
         }
@@ -249,33 +278,6 @@ struct TopBar: View {
         if v < 34 { return "speaker.wave.1.fill" }
         if v < 67 { return "speaker.wave.2.fill" }
         return "speaker.wave.3.fill"
-    }
-}
-
-struct CloseDot: View {
-
-    var action: () -> Void
-    @State private var hover = false
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(Color(red: 1.0, green: 0.37, blue: 0.34))
-                    .frame(width: 13, height: 13)
-                    .overlay(Circle().strokeBorder(Color.black.opacity(0.15), lineWidth: 0.5))
-                if hover {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 7, weight: .heavy))
-                        .foregroundStyle(.black.opacity(0.55))
-                }
-            }
-            .frame(width: 20, height: 20)
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .onHover { hover = $0 }
-        .help("Hide Rota (menu bar icon brings it back)")
     }
 }
 
@@ -333,38 +335,41 @@ struct IdleView: View {
     let title: String
     let caption: String
     let buttonLabel: String
+    var compact: Bool = false
     let action: () -> Void
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: compact ? 6 : 10) {
             Image(systemName: symbol)
-                .font(.system(size: 34, weight: .light))
+                .font(.system(size: compact ? 24 : 34, weight: .light))
                 .foregroundStyle(.white.opacity(0.45))
-                .padding(.bottom, 4)
+                .padding(.bottom, 2)
 
             Text(title)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: compact ? 13 : 16, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
 
-            Text(caption)
-                .font(.system(size: 11.5))
-                .foregroundStyle(.white.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
+            if !compact {
+                Text(caption)
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.white.opacity(0.5))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Button(action: action) {
                 Text(buttonLabel)
-                    .font(.system(size: 12.5, weight: .semibold))
+                    .font(.system(size: compact ? 11 : 12.5, weight: .semibold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, compact ? 12 : 16)
+                    .padding(.vertical, compact ? 5 : 7)
                     .background(Capsule().fill(.white.opacity(0.14)))
                     .overlay(Capsule().strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5))
             }
             .buttonStyle(PressableStyle())
-            .padding(.top, 8)
+            .padding(.top, compact ? 2 : 8)
         }
-        .padding(24)
+        .padding(compact ? 12 : 24)
     }
 }
 

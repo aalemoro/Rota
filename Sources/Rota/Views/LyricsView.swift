@@ -11,9 +11,10 @@ import SwiftUI
 struct LyricsView: View {
 
     @EnvironmentObject var store: PlayerStore
+    var mode: WidgetSizeMode = .large
 
     var body: some View {
-        LyricsContent(lyrics: store.lyrics)
+        LyricsContent(lyrics: store.lyrics, mode: mode)
     }
 }
 
@@ -21,6 +22,7 @@ struct LyricsContent: View {
 
     @EnvironmentObject var store: PlayerStore
     @ObservedObject var lyrics: LyricsController
+    var mode: WidgetSizeMode = .large
 
     var body: some View {
         switch lyrics.state {
@@ -44,9 +46,9 @@ struct LyricsContent: View {
                 Text("No lyrics for this song")
             }
         case .plain(let lines):
-            PlainLyricsView(lines: lines)
+            PlainLyricsView(lines: lines, mode: mode)
         case .synced(let lines):
-            SyncedLyricsView(lines: lines)
+            SyncedLyricsView(lines: lines, mode: mode)
         }
     }
 
@@ -66,6 +68,17 @@ struct SyncedLyricsView: View {
 
     @EnvironmentObject var store: PlayerStore
     let lines: [LyricLine]
+    var mode: WidgetSizeMode = .large
+
+    private var fontSize: CGFloat {
+        switch mode { case .large: return 23; case .wide: return 15; case .small: return 12.5 }
+    }
+    private var lineSpacing: CGFloat {
+        switch mode { case .large: return 26; case .wide: return 15; case .small: return 11 }
+    }
+    private var sidePadding: CGFloat {
+        switch mode { case .large: return 24; case .wide: return 16; case .small: return 12 }
+    }
 
     private var activeIndex: Int? {
         let now = store.displayPosition + 0.35
@@ -75,8 +88,8 @@ struct SyncedLyricsView: View {
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 26) {
-                    Color.clear.frame(height: 46).id(-1)
+                VStack(alignment: .leading, spacing: lineSpacing) {
+                    Color.clear.frame(height: mode == .large ? 46 : 24).id(-1)
 
                     ForEach(lines) { line in
                         let isActive = line.id == activeIndex
@@ -84,7 +97,7 @@ struct SyncedLyricsView: View {
                             store.seek(to: line.time)
                         } label: {
                             Text(line.text)
-                                .font(.system(size: 23, weight: .bold))
+                                .font(.system(size: fontSize, weight: .bold))
                                 .foregroundStyle(.white.opacity(isActive ? 1.0 : 0.34))
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -95,9 +108,9 @@ struct SyncedLyricsView: View {
                         .id(line.id)
                     }
 
-                    Color.clear.frame(height: 130).id(Int.max)
+                    Color.clear.frame(height: mode == .large ? 130 : 70).id(Int.max)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, sidePadding)
                 .animation(.spring(response: 0.45, dampingFraction: 0.9), value: activeIndex)
             }
             .onChange(of: activeIndex) { index in
@@ -134,25 +147,30 @@ struct SyncedLyricsView: View {
 struct PlainLyricsView: View {
 
     let lines: [String]
+    var mode: WidgetSizeMode = .large
+
+    private var fontSize: CGFloat {
+        switch mode { case .large: return 19; case .wide: return 14; case .small: return 12 }
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
-                Color.clear.frame(height: 40)
+            VStack(alignment: .leading, spacing: mode == .large ? 14 : 9) {
+                Color.clear.frame(height: mode == .large ? 40 : 22)
                 ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                     if line.isEmpty {
                         Color.clear.frame(height: 6)
                     } else {
                         Text(line)
-                            .font(.system(size: 19, weight: .bold))
+                            .font(.system(size: fontSize, weight: .bold))
                             .foregroundStyle(.white.opacity(0.82))
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                Color.clear.frame(height: 60)
+                Color.clear.frame(height: mode == .large ? 60 : 36)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, mode == .large ? 24 : 14)
         }
         .mask(
             LinearGradient(
