@@ -24,6 +24,15 @@
   <img src="docs/lyrics.png" width="340" alt="Rota lyrics mode" />
 </p>
 
+<p align="center">
+  <img src="docs/size-large-idle.png" width="230" alt="Large widget at rest" />
+  &nbsp;
+  <img src="docs/size-medium.png" width="230" alt="Medium widget" />
+  &nbsp;
+  <img src="docs/size-small.png" width="115" alt="Small widget" />
+</p>
+<p align="center"><em>Three native sizes. At rest, every one of them is pure album art — controls fade in on hover.</em></p>
+
 **Rota** puts a small, beautiful now-playing widget on your desktop. The album
 cover fills the whole card, melting into frosted glass behind the controls —
 and one click flips it into a karaoke-style **synced lyrics** view. It floats
