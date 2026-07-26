@@ -100,19 +100,21 @@ final class PlayerStore: ObservableObject {
         }
 
         let dnc = DistributedNotificationCenter.default()
-        observers.append(dnc.addObserver(
-            forName: NSNotification.Name("com.apple.Music.playerInfo"),
-            object: nil, queue: .main
-        ) { [weak self] _ in
-            self?.pollNow()
-        })
+        for name in ["com.apple.Music.playerInfo", "com.spotify.client.PlaybackStateChanged"] {
+            observers.append(dnc.addObserver(
+                forName: NSNotification.Name(name),
+                object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.pollNow()
+            })
+        }
 
         let wnc = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didLaunchApplicationNotification,
                      NSWorkspace.didTerminateApplicationNotification] {
             observers.append(wnc.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
                 let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                if app?.bundleIdentifier == MusicBridge.musicBundleID {
+                if let bid = app?.bundleIdentifier, bid == MediaSource.appleMusic.bundleID || bid == MediaSource.spotify.bundleID {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self?.pollNow() }
                 }
             })
@@ -155,7 +157,7 @@ final class PlayerStore: ObservableObject {
         guard !polling else { return }
         polling = true
 
-        bridge.snapshot { [weak self] result in
+        bridge.snapshot(preferring: snapshot.source) { [weak self] result in
             guard let self else { return }
             self.polling = false
             switch result {
@@ -190,7 +192,7 @@ final class PlayerStore: ObservableObject {
 
         if snap.hasTrack, artworkTrackID != snap.persistentID {
             artworkTrackID = snap.persistentID
-            loadArtwork(for: snap.persistentID)
+            loadArtwork(for: snap)
         } else if !snap.hasTrack {
             // Empty queue: fall back to the ghost cover so the widget stays
             // an album card with a resume button rather than a blank state.
@@ -233,7 +235,8 @@ final class PlayerStore: ObservableObject {
             duration: s.duration,
             position: displayPosition,
             updatedAt: Date(),
-            persistentID: s.persistentID
+            persistentID: s.persistentID,
+            source: s.source.rawValue
         )
         // Never clobber a remembered track with emptiness — the ghost (and
         // the gallery widget) should always have something to show/resume.
@@ -265,25 +268,58 @@ final class PlayerStore: ObservableObject {
         displayPosition = snapshot.duration > 0 ? min(projected, snapshot.duration) : projected
     }
 
-    private func loadArtwork(for id: String) {
+    private func loadArtwork(for snap: MusicSnapshot) {
+        let id = snap.persistentID
         if let cached = artworkCache.object(forKey: id as NSString) {
             artwork = cached
             artworkBlurred = blurredCache.object(forKey: id as NSString)
             if artworkBlurred == nil { bakeBlur(for: cached, id: id) }
             return
         }
-        bridge.artwork { [weak self] image in
-            guard let self else { return }
-            // Ignore stale replies after further track changes.
-            guard self.artworkTrackID == id else { return }
-            if let image {
-                self.applyArtwork(image, for: id)
+        switch snap.source {
+        case .spotify:
+            // Spotify hands us the cover URL directly.
+            downloadArtwork(from: snap.artworkURL, for: id)
+        case .appleMusic:
+            bridge.musicArtwork { [weak self] image in
+                guard let self else { return }
+                // Ignore stale replies after further track changes.
+                guard self.artworkTrackID == id else { return }
+                if let image {
+                    self.applyArtwork(image, for: id)
+                } else {
+                    // Streaming tracks often expose no artwork via scripting —
+                    // resolve the cover from Apple's catalogue instead.
+                    self.artwork = nil
+                    self.artworkBlurred = nil
+                    self.fetchArtworkOnline(for: id)
+                }
+            }
+        }
+    }
+
+    private func downloadArtwork(from urlString: String, for id: String) {
+        guard let url = URL(string: urlString), !urlString.isEmpty else {
+            artwork = nil
+            artworkBlurred = nil
+            fetchArtworkOnline(for: id)
+            return
+        }
+        Task { [weak self] in
+            let image: NSImage?
+            if let (data, response) = try? await URLSession.shared.data(from: url),
+               (response as? HTTPURLResponse)?.statusCode == 200 {
+                image = NSImage(data: data)
             } else {
-                // Streaming tracks often expose no artwork via scripting —
-                // resolve the cover from Apple's catalogue instead.
-                self.artwork = nil
-                self.artworkBlurred = nil
-                self.fetchArtworkOnline(for: id)
+                image = nil
+            }
+            await MainActor.run { [weak self] in
+                guard let self, self.artworkTrackID == id else { return }
+                if let image {
+                    self.applyArtwork(image, for: id)
+                } else {
+                    self.fetchArtworkOnline(for: id)
+                }
             }
         }
     }
@@ -394,6 +430,7 @@ final class PlayerStore: ObservableObject {
     @Published private(set) var ghostTitle = ""
     @Published private(set) var ghostArtist = ""
     private var ghostPersistentID = ""
+    private(set) var ghostSource: MediaSource = .appleMusic
 
     /// Loads the persisted last-track snapshot + covers (ghost mode).
     /// With `includeInfo` the live snapshot fields are populated too —
@@ -403,6 +440,7 @@ final class PlayerStore: ObservableObject {
         ghostTitle = saved.title
         ghostArtist = saved.artist
         ghostPersistentID = saved.persistentID ?? ""
+        ghostSource = MediaSource(rawValue: saved.source ?? "") ?? .appleMusic
         if includeInfo {
             snapshot.title = saved.title
             snapshot.artist = saved.artist
@@ -427,17 +465,20 @@ final class PlayerStore: ObservableObject {
         isResuming = true
         if snapshot.hasTrack {
             resumeTarget = (snapshot.persistentID, snapshot.title, snapshot.artist)
+            resumeSource = snapshot.source
         } else {
             loadGhost(includeInfo: false)
             resumeTarget = (ghostPersistentID, ghostTitle, ghostArtist)
+            resumeSource = ghostSource
         }
-        if !bridge.isMusicRunning {
-            openMusicApp()
+        if !resumeSource.isRunning {
+            openApp(resumeSource)
         }
         attemptPlay(remaining: 12)
     }
 
     private var resumeTarget: (id: String, title: String, artist: String) = ("", "", "")
+    private var resumeSource: MediaSource = .appleMusic
 
     private func attemptPlay(remaining: Int) {
         guard remaining > 0 else {
@@ -450,10 +491,10 @@ final class PlayerStore: ObservableObject {
                 self.isResuming = false
                 return
             }
-            if self.bridge.isMusicRunning {
+            if self.resumeSource.isRunning {
                 // The targeted script ends in "play the library" — it's the
                 // right move even with no remembered track (empty queue).
-                let targeted = remaining == 10 || remaining == 6
+                let targeted = (remaining == 10 || remaining == 6) && self.resumeSource == .appleMusic
                 if targeted {
                     self.bridge.resumeSpecificTrack(
                         persistentID: self.resumeTarget.id,
@@ -461,7 +502,7 @@ final class PlayerStore: ObservableObject {
                         artist: self.resumeTarget.artist
                     ) { [weak self] in self?.pollNow() }
                 } else {
-                    self.bridge.play { [weak self] in self?.pollNow() }
+                    self.bridge.play(on: self.resumeSource) { [weak self] in self?.pollNow() }
                 }
             }
             self.attemptPlay(remaining: remaining - 1)
@@ -494,12 +535,13 @@ final class PlayerStore: ObservableObject {
     }
 
     func cycleRepeat() {
-        snapshot.repeatMode = snapshot.repeatMode.next
+        snapshot.repeatMode = snapshot.repeatMode.next(for: snapshot.source)
         bridge.setRepeat(snapshot.repeatMode)
         pollSoon()
     }
 
     func toggleFavorite() {
+        guard snapshot.source.supportsFavorite else { return }
         snapshot.favorited.toggle()
         favoriteHoldUntil = Date().addingTimeInterval(6)
         bridge.setFavorite(snapshot.favorited) { [weak self] in
@@ -520,6 +562,15 @@ final class PlayerStore: ObservableObject {
 
     func adjustVolume(by delta: Double) {
         setVolume(snapshot.volume + delta)
+    }
+
+    func openApp(_ source: MediaSource) {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: source.bundleID) else { return }
+        NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration()) { _, _ in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                self?.pollNow()
+            }
+        }
     }
 
     func openMusicApp() {

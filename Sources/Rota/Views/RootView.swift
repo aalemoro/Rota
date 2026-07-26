@@ -133,7 +133,10 @@ struct RootView: View {
             set: { _ in AppDelegate.shared?.toggleLaunchAtLogin() }
         ))
         Divider()
-        Button("Open Apple Music") { store.openMusicApp() }
+        Button("Open Apple Music") { store.openApp(.appleMusic) }
+        if MediaSource.spotify.isInstalled {
+            Button("Open Spotify") { store.openApp(.spotify) }
+        }
         Button("Hide Rota") { store.onHide?() }
         Divider()
         Button("Quit Rota") { NSApp.terminate(nil) }

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased — `spotify` branch
+
+- 🟢 **Spotify support** with automatic source detection: Rota mirrors and
+  controls whichever player is active (both running → the one playing wins).
+  Spotify covers come straight from its artwork URL; favourite is hidden
+  (Spotify has no scripting API for it) and repeat is off/all.
+
 ## 2.3.0 — 2026-07-25
 
 - 👻 **Ghost mode** — with Music closed, the widget keeps showing the last

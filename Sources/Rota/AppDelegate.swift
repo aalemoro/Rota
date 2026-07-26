@@ -408,6 +408,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             "widgetVisible": panel.isVisible,
             "lyricsMode": store.showLyrics,
             "widgetSize": currentWidgetSize.rawValue,
+            "source": s.source.rawValue,
             "captureRect": captureRect()
         ]
         if let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) {

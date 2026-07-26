@@ -60,7 +60,7 @@ struct PlayerView: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 6)
-            if mode != .small {
+            if mode != .small, store.snapshot.source.supportsFavorite {
                 FavoriteButton(diameter: mode == .large ? 32 : 26)
             }
         }

@@ -249,14 +249,9 @@ struct NowPlayingView: View {
                             .lineLimit(1)
                     }
                     Spacer(minLength: 8)
-                    Button(intent: RotaFavoriteIntent()) {
-                        Image(systemName: info?.favorited == true ? "star.fill" : "star")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.9))
-                            .frame(width: 28, height: 28)
-                            .background(Circle().fill(.black.opacity(0.25)))
+                    if entry.info?.source != "spotify" {
+                        favoriteButton
                     }
-                    .buttonStyle(.plain)
                 }
                 progressBar
                 controls(size: 19, spacing: 34)
@@ -268,6 +263,17 @@ struct NowPlayingView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
         .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
+    }
+
+    private var favoriteButton: some View {
+        Button(intent: RotaFavoriteIntent()) {
+            Image(systemName: info?.favorited == true ? "star.fill" : "star")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.9))
+                .frame(width: 28, height: 28)
+                .background(Circle().fill(.black.opacity(0.25)))
+        }
+        .buttonStyle(.plain)
     }
 
     private var progressBar: some View {

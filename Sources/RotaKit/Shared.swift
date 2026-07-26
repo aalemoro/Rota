@@ -20,11 +20,13 @@ public struct SharedNowPlaying: Codable {
     public var position: Double
     public var updatedAt: Date
     public var persistentID: String?
+    /// "appleMusic" | "spotify"
+    public var source: String?
 
     public init(title: String, artist: String, album: String,
                 playing: Bool, favorited: Bool,
                 duration: Double, position: Double, updatedAt: Date,
-                persistentID: String? = nil) {
+                persistentID: String? = nil, source: String? = nil) {
         self.title = title
         self.artist = artist
         self.album = album
@@ -34,6 +36,7 @@ public struct SharedNowPlaying: Codable {
         self.position = position
         self.updatedAt = updatedAt
         self.persistentID = persistentID
+        self.source = source
     }
 
     public var hasTrack: Bool { !title.isEmpty }
