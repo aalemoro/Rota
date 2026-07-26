@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy — Rota</title>
+<link rel="icon" type="image/png" href="logo.png" />
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background: linear-gradient(180deg, #171c3a, #0b0e22 46%);
+    color: #f2f3f8; line-height: 1.75; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 70px 24px 80px; }
+  h1 { font-size: 34px; letter-spacing: -0.01em; }
+  h2 { font-size: 20px; margin-top: 34px; }
+  p, li { color: rgba(242, 243, 248, 0.78); font-size: 15.5px; }
+  a { color: #9fb0ff; }
+  .updated { color: rgba(242,243,248,0.5); font-size: 13px; }
+  code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 6px; font-size: 13.5px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Privacy Policy</h1>
+    <p class="updated">Rota for macOS &amp; Rota for iOS · Last updated: 26 July 2026</p>
+
+    <h2>The short version</h2>
+    <p><strong>Rota collects nothing.</strong> No accounts, no analytics, no ads,
+    no tracking, no identifiers. Everything Rota knows stays on your device.</p>
+
+    <h2>What Rota accesses on your device</h2>
+    <p>Rota reads what your music player (Apple Music, or Spotify in the
+    Spotify-enabled build) is currently playing — title, artist, album, playback
+    position and the album cover — solely to display it and to send your
+    commands (play, pause, skip, seek) back to the player. On macOS this uses
+    Apple Events with your explicit permission; on iOS it uses Apple's
+    MediaPlayer framework with the Media &amp; Apple Music permission.</p>
+
+    <h2>The only two network requests</h2>
+    <ul>
+      <li><strong>Lyrics</strong> — the current track's title, artist, album and
+      duration are sent over HTTPS to <a href="https://lrclib.net">LRCLIB</a>,
+      an open lyrics database, to fetch the words. No account, no keys, and the
+      request contains nothing about you.</li>
+      <li><strong>Missing covers</strong> — if a track exposes no artwork, the
+      title/artist/album are sent over HTTPS to Apple's public iTunes Search
+      API to find the cover image.</li>
+    </ul>
+    <p>Responses are cached locally (<code>~/Library/Caches/Rota</code> on macOS).
+    Neither request is linked to your identity, and nothing else ever leaves
+    your device.</p>
+
+    <h2>Data we store</h2>
+    <p>Rota keeps small local files (last played track, cover, window position,
+    preferences) on your device only, so the widget can restore itself after a
+    reboot. Deleting the app deletes them.</p>
+
+    <h2>Third parties</h2>
+    <p>There are none: no SDKs, no analytics providers, no advertising networks.</p>
+
+    <h2>Contact</h2>
+    <p>Questions? Open an issue on
+    <a href="https://github.com/aalemoro/Rota">GitHub</a>.</p>
+
+    <p style="margin-top:46px"><a href="index.html">← Back to Rota</a></p>
+  </div>
+</body>
+</html>
