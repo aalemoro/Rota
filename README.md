@@ -16,6 +16,10 @@
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT" />
 </p>
 
+<p align="center">
+  🌐 <a href="https://aalemoro.github.io/Rota/"><strong>aalemoro.github.io/Rota</strong></a>
+</p>
+
 ---
 
 <p align="center">
@@ -68,6 +72,9 @@ out of the Dock.
   Drag the widget and it **snaps into the native widget grid**.
 - 🖼 **Covers always load** — local artwork first; if a streaming track
   exposes none, Rota resolves it from Apple's catalogue automatically.
+- 👻 **Alive even when Music is closed** — the widget keeps showing the last
+  album cover; hover reveals a Resume button that reopens Music and picks up
+  where you left off, in one click.
 - 🫥 **Chrome-free, like a real widget** — no Dock icon, no menu bar item, no
   window buttons. Everything lives in the right-click menu; launch Rota
   again (Spotlight) to bring the widget back after hiding it.
@@ -94,7 +101,14 @@ out of the Dock.
 
 4. Click **Allow** when macOS asks if Rota may control Music. Done. 🎉
 
-### Option 2 — One command
+### Option 2 — Homebrew
+
+```bash
+# --no-quarantine spares the right-click → Open dance (the build is ad-hoc signed)
+brew install --cask aalemoro/tap/rota --no-quarantine
+```
+
+### Option 3 — One command
 
 Builds from source and installs into Applications automatically:
 
@@ -102,7 +116,7 @@ Builds from source and installs into Applications automatically:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/aalemoro/Rota/main/scripts/install.sh)"
 ```
 
-### Option 3 — Build from source
+### Option 4 — Build from source
 
 Requires Apple's Command Line Tools (`xcode-select --install`). No Xcode
 project, no signing setup — it's a plain Swift package:

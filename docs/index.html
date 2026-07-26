@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Rota — a floating Apple Music widget for macOS</title>
+<meta name="description" content="Rota puts a beautiful, artwork-first Apple Music widget on your macOS desktop — synced lyrics, native widget behaviour, zero dependencies." />
+<meta property="og:title" content="Rota — Apple Music on your desktop" />
+<meta property="og:description" content="Artwork-first desktop widget for Apple Music with synced lyrics. Free & open source." />
+<meta property="og:image" content="https://aalemoro.github.io/Rota/player.png" />
+<link rel="icon" type="image/png" href="logo.png" />
+<style>
+  :root {
+    --bg0: #0b0e22;
+    --bg1: #171c3a;
+    --card: rgba(255, 255, 255, 0.05);
+    --line: rgba(255, 255, 255, 0.10);
+    --text: #f2f3f8;
+    --dim: rgba(242, 243, 248, 0.62);
+    --accent: #6b7cff;
+    --accent2: #3d8bff;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    background:
+      radial-gradient(1100px 600px at 15% -5%, rgba(107, 124, 255, 0.16), transparent 60%),
+      radial-gradient(900px 500px at 95% 10%, rgba(61, 139, 255, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg1), var(--bg0) 46%);
+    color: var(--text);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+  header { padding: 88px 0 40px; text-align: center; }
+  header img.logo { width: 108px; height: 108px; filter: drop-shadow(0 18px 40px rgba(0,0,0,0.5)); }
+  h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.02em; margin-top: 18px; }
+  .tagline { font-size: 20px; color: var(--dim); max-width: 560px; margin: 10px auto 0; }
+  .tagline em { color: var(--text); font-style: normal; font-weight: 600; }
+
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 30px; }
+  .btn {
+    display: inline-block; padding: 13px 26px; border-radius: 14px;
+    font-size: 15.5px; font-weight: 700; text-decoration: none; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    box-shadow: 0 10px 30px rgba(80, 110, 255, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 14px 34px rgba(80, 110, 255, 0.45); }
+  .btn.ghost {
+    background: var(--card); border: 1px solid var(--line); box-shadow: none; color: var(--text);
+  }
+  .brew {
+    margin: 22px auto 0; display: inline-block; text-align: left;
+    background: rgba(0, 0, 0, 0.45); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 18px; font-family: "SF Mono", ui-monospace, Menlo, monospace; font-size: 13.5px;
+    color: #cdd5ff;
+  }
+  .brew span { color: #7d8ac9; user-select: none; }
+  .note { font-size: 12.5px; color: var(--dim); margin-top: 10px; }
+
+  .shots { display: flex; gap: 22px; justify-content: center; flex-wrap: wrap; padding: 46px 0 8px; }
+  .shots img {
+    border-radius: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    border: 1px solid var(--line);
+  }
+  .shots .big { width: 330px; max-width: 88vw; }
+  .sizes { display: flex; gap: 18px; align-items: flex-end; justify-content: center; flex-wrap: wrap; padding: 26px 0 10px; }
+  .sizes img { border-radius: 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); border: 1px solid var(--line); }
+  .caption { text-align: center; color: var(--dim); font-size: 14px; padding: 10px 0 30px; }
+
+  .features {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px; padding: 30px 0 20px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 22px;
+  }
+  .card .emoji { font-size: 26px; }
+  .card h3 { font-size: 16.5px; margin: 8px 0 4px; }
+  .card p { font-size: 14px; color: var(--dim); }
+
+  .section-title { text-align: center; font-size: 30px; font-weight: 800; letter-spacing: -0.01em; padding-top: 40px; }
+
+  footer {
+    text-align: center; color: var(--dim); font-size: 13.5px;
+    padding: 54px 0 44px; border-top: 1px solid var(--line); margin-top: 60px;
+  }
+  footer a { color: #9fb0ff; text-decoration: none; }
+  @media (max-width: 640px) { h1 { font-size: 42px; } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+
+    <header>
+      <img class="logo" src="logo.png" alt="Rota app icon" />
+      <h1>Rota</h1>
+      <p class="tagline">Apple&nbsp;Music, living on your desktop. An <em>artwork-first</em> widget with synced lyrics — free, native and open source. <em>rota</em>&nbsp;· Latin for “wheel”.</p>
+      <div class="cta">
+        <a class="btn" href="https://github.com/aalemoro/Rota/releases/latest">⬇︎&nbsp; Download for macOS</a>
+        <a class="btn ghost" href="https://github.com/aalemoro/Rota">View on GitHub</a>
+      </div>
+      <div style="text-align:center">
+        <code class="brew"><span>$</span> brew install --cask aalemoro/tap/rota --no-quarantine</code>
+        <p class="note">macOS 14+ · unzip &amp; drag to Applications also works — first launch: right-click → Open</p>
+      </div>
+    </header>
+
+    <div class="shots">
+      <img class="big" src="player.png" alt="Rota player with album artwork, seek bar and transport controls" />
+      <img class="big" src="lyrics.png" alt="Rota synced lyrics mode" />
+    </div>
+
+    <div class="sizes">
+      <img src="size-large-idle.png" width="230" alt="Large widget at rest — pure album art" />
+      <img src="size-medium.png" width="230" alt="Medium widget" />
+      <img src="size-small.png" width="115" alt="Small widget" />
+    </div>
+    <p class="caption">Three native sizes. At rest, every one of them is pure album art — controls fade in on hover.</p>
+
+    <h2 class="section-title">Why you'll keep it on screen</h2>
+    <div class="features">
+      <div class="card"><div class="emoji">🎨</div><h3>The cover is the interface</h3><p>Edge-to-edge artwork melting into frosted glass, exactly like Apple Music's MiniPlayer — and when your mouse is away, it's just the album, like a photo widget.</p></div>
+      <div class="card"><div class="emoji">🎤</div><h3>Synced lyrics</h3><p>Karaoke-style highlighting that scrolls with the song, via the open LRCLIB database. Click any line to jump right there.</p></div>
+      <div class="card"><div class="emoji">🧲</div><h3>Behaves like a real widget</h3><p>Sits above the wallpaper under your windows, snaps into the native widget grid, comes in the three official sizes, survives reboots.</p></div>
+      <div class="card"><div class="emoji">🧩</div><h3>Gallery widget included</h3><p>A true WidgetKit widget you add from right-click&nbsp;→ Edit&nbsp;Widgets, with working play/pause and skip buttons.</p></div>
+      <div class="card"><div class="emoji">⌨️</div><h3>Fast to drive</h3><p>Keyboard shortcuts, a draggable seek bar, and a scriptable <code>rota://</code> URL scheme for Raycast, Shortcuts and friends.</p></div>
+      <div class="card"><div class="emoji">🔒</div><h3>Private by design</h3><p>No account, no analytics. Only track metadata leaves your Mac — to fetch lyrics and missing covers over HTTPS.</p></div>
+    </div>
+
+    <footer>
+      <p><a href="https://github.com/aalemoro/Rota">GitHub</a> · <a href="https://github.com/aalemoro/Rota/releases">Releases</a> · MIT License</p>
+      <p style="margin-top:6px">Made with Swift by <a href="https://github.com/aalemoro">Alessandro Gaudio</a>. Album artwork belongs to its copyright holders.</p>
+    </footer>
+
+  </div>
+</body>
+</html>

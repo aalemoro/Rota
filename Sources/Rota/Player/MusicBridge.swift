@@ -176,6 +176,41 @@ final class MusicBridge {
         fire("tell application \"Music\" to playpause", then: then)
     }
 
+    /// Unconditional "start playing" — resumes the last queue. Used when
+    /// Music has just been launched or is stopped with nothing queued.
+    func play(then: (() -> Void)? = nil) {
+        fire("tell application \"Music\" to play", then: then)
+    }
+
+    /// Freshly launched Music often has an empty queue, where a bare `play`
+    /// does nothing. This finds the remembered track in the library (by ID,
+    /// then by name+artist) and plays it, falling back to the library itself.
+    func resumeSpecificTrack(persistentID: String, title: String, artist: String, then: (() -> Void)? = nil) {
+        func escaped(_ text: String) -> String {
+            text
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+        }
+        let source = """
+        tell application "Music"
+            try
+                play (first track of library playlist 1 whose persistent ID is "\(escaped(persistentID))")
+            on error
+                try
+                    play (first track of library playlist 1 whose name is "\(escaped(title))" and artist is "\(escaped(artist))")
+                on error
+                    try
+                        play library playlist 1
+                    on error
+                        play
+                    end try
+                end try
+            end try
+        end tell
+        """
+        fire(source, then: then)
+    }
+
     func nextTrack(then: (() -> Void)? = nil) {
         fire("tell application \"Music\" to next track", then: then)
     }

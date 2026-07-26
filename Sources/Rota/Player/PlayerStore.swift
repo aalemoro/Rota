@@ -32,6 +32,8 @@ final class PlayerStore: ObservableObject {
     @Published private(set) var displayPosition: Double = 0
     @Published var isScrubbing = false
     @Published var scrubPosition: Double = 0
+    /// True while we're launching Music and nudging it to resume playback.
+    @Published private(set) var isResuming = false
 
     @Published var showLyrics = false {
         didSet {
@@ -91,6 +93,12 @@ final class PlayerStore: ObservableObject {
     func start() {
         artworkCache.countLimit = 12
 
+        // Ghost mode: with Music closed, resurrect the last track and cover
+        // from the shared container so the widget never goes blank.
+        if !bridge.isMusicRunning {
+            loadGhost()
+        }
+
         let dnc = DistributedNotificationCenter.default()
         observers.append(dnc.addObserver(
             forName: NSNotification.Name("com.apple.Music.playerInfo"),
@@ -135,12 +143,12 @@ final class PlayerStore: ObservableObject {
         guard bridge.isMusicRunning else {
             if availability != .musicNotRunning {
                 availability = .musicNotRunning
-                snapshot = MusicSnapshot()
-                artwork = nil
-                artworkBlurred = nil
+                // Ghost mode: keep the last track and artwork on screen —
+                // the widget stays a beautiful cover even with Music closed.
+                snapshot.state = .stopped
                 artworkTrackID = nil
-                displayPosition = 0
-                publishWidgetState()
+                if artwork == nil { loadGhost() }
+                publishWidgetState(force: true)
             }
             return
         }
@@ -183,10 +191,11 @@ final class PlayerStore: ObservableObject {
         if snap.hasTrack, artworkTrackID != snap.persistentID {
             artworkTrackID = snap.persistentID
             loadArtwork(for: snap.persistentID)
-        } else if !snap.hasTrack, artwork != nil {
-            artwork = nil
-            artworkBlurred = nil
+        } else if !snap.hasTrack {
+            // Empty queue: fall back to the ghost cover so the widget stays
+            // an album card with a resume button rather than a blank state.
             artworkTrackID = nil
+            if artwork == nil { loadGhost(includeInfo: false) }
         }
 
         if trackChanged {
@@ -216,16 +225,21 @@ final class PlayerStore: ObservableObject {
         lastPublishedSignature = signature
 
         let info = SharedNowPlaying(
-            title: ready ? s.title : "",
+            title: s.title,
             artist: s.artist,
             album: s.album,
-            playing: s.state == .playing,
+            playing: ready && s.state == .playing,
             favorited: s.favorited,
             duration: s.duration,
             position: displayPosition,
-            updatedAt: Date()
+            updatedAt: Date(),
+            persistentID: s.persistentID
         )
-        SharedStore.writeNowPlaying(info)
+        // Never clobber a remembered track with emptiness — the ghost (and
+        // the gallery widget) should always have something to show/resume.
+        if info.hasTrack {
+            SharedStore.writeNowPlaying(info)
+        }
         WidgetCenter.shared.reloadTimelines(ofKind: SharedStore.widgetKind)
     }
 
@@ -362,12 +376,96 @@ final class PlayerStore: ObservableObject {
 
     func togglePlayPause() {
         guard bridge.isMusicRunning else {
-            openMusicApp()
+            resumePlayback()
+            return
+        }
+        // Stopped or empty queue: go through the smart resume chain — a bare
+        // `playpause` would silently do nothing with an empty queue.
+        if !snapshot.hasTrack || snapshot.state == .stopped {
+            resumePlayback()
             return
         }
         snapshot.state = snapshot.state == .playing ? .paused : .playing
         bridge.playPause()
         pollSoon()
+    }
+
+    /// What the ghost would resume (from the persisted snapshot).
+    @Published private(set) var ghostTitle = ""
+    @Published private(set) var ghostArtist = ""
+    private var ghostPersistentID = ""
+
+    /// Loads the persisted last-track snapshot + covers (ghost mode).
+    /// With `includeInfo` the live snapshot fields are populated too —
+    /// only safe while Music isn't running.
+    private func loadGhost(includeInfo: Bool = true) {
+        guard let saved = SharedStore.readNowPlaying(), saved.hasTrack else { return }
+        ghostTitle = saved.title
+        ghostArtist = saved.artist
+        ghostPersistentID = saved.persistentID ?? ""
+        if includeInfo {
+            snapshot.title = saved.title
+            snapshot.artist = saved.artist
+            snapshot.album = saved.album
+            snapshot.duration = saved.duration
+            snapshot.position = saved.position
+            snapshot.favorited = saved.favorited
+            displayPosition = saved.position
+        }
+        if artwork == nil, let cover = SharedStore.readCover() {
+            artwork = cover
+            artworkBlurred = SharedStore.readCoverBlurred()
+        }
+    }
+
+    /// Launches Music if needed and keeps nudging it until it actually
+    /// plays. Freshly launched Music ignores scripting for a second or two,
+    /// and often comes up with an empty queue where a bare `play` does
+    /// nothing — so some attempts target the remembered track directly.
+    func resumePlayback() {
+        guard !isResuming else { return }
+        isResuming = true
+        if snapshot.hasTrack {
+            resumeTarget = (snapshot.persistentID, snapshot.title, snapshot.artist)
+        } else {
+            loadGhost(includeInfo: false)
+            resumeTarget = (ghostPersistentID, ghostTitle, ghostArtist)
+        }
+        if !bridge.isMusicRunning {
+            openMusicApp()
+        }
+        attemptPlay(remaining: 12)
+    }
+
+    private var resumeTarget: (id: String, title: String, artist: String) = ("", "", "")
+
+    private func attemptPlay(remaining: Int) {
+        guard remaining > 0 else {
+            isResuming = false
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self else { return }
+            if self.availability == .ready, self.snapshot.state == .playing {
+                self.isResuming = false
+                return
+            }
+            if self.bridge.isMusicRunning {
+                // The targeted script ends in "play the library" — it's the
+                // right move even with no remembered track (empty queue).
+                let targeted = remaining == 10 || remaining == 6
+                if targeted {
+                    self.bridge.resumeSpecificTrack(
+                        persistentID: self.resumeTarget.id,
+                        title: self.resumeTarget.title,
+                        artist: self.resumeTarget.artist
+                    ) { [weak self] in self?.pollNow() }
+                } else {
+                    self.bridge.play { [weak self] in self?.pollNow() }
+                }
+            }
+            self.attemptPlay(remaining: remaining - 1)
+        }
     }
 
     func nextTrack() {

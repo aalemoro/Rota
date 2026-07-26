@@ -63,14 +63,20 @@ struct RootView: View {
     private func content(mode: WidgetSizeMode) -> some View {
         switch store.availability {
         case .musicNotRunning:
-            IdleView(
-                symbol: "music.note",
-                title: "Music isn't running",
-                caption: "Open Apple Music to get started.",
-                buttonLabel: "Open Music",
-                compact: mode != .large,
-                action: { store.openMusicApp() }
-            )
+            if store.artwork != nil || store.snapshot.hasTrack {
+                // Ghost mode — the last cover stays on the desktop; hovering
+                // reveals a resume button that brings Music back to life.
+                GhostPlayerView(hovering: hovering, mode: mode)
+            } else {
+                IdleView(
+                    symbol: "music.note",
+                    title: "Music isn't running",
+                    caption: "One click and it starts playing again.",
+                    buttonLabel: "Play",
+                    compact: mode != .large,
+                    action: { store.resumePlayback() }
+                )
+            }
         case .needsAutomationPermission:
             IdleView(
                 symbol: "lock.shield",
@@ -87,14 +93,16 @@ struct RootView: View {
             } else if store.snapshot.hasTrack {
                 PlayerView(hovering: hovering, mode: mode)
                     .transition(.opacity)
+            } else if store.artwork != nil {
+                GhostPlayerView(hovering: hovering, mode: mode)
             } else {
                 IdleView(
                     symbol: "music.note.list",
                     title: "Nothing playing",
-                    caption: "Pick a song in Apple Music.",
-                    buttonLabel: "Open Music",
+                    caption: "Resume the last song, or pick one in Music.",
+                    buttonLabel: "Play",
                     compact: mode != .large,
-                    action: { store.openMusicApp() }
+                    action: { store.togglePlayPause() }
                 )
             }
         }

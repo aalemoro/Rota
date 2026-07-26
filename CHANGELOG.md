@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.3.0 — 2026-07-25
+
+- 👻 **Ghost mode** — with Music closed, the widget keeps showing the last
+  album cover instead of an empty card. Hover shows a single **Resume**
+  button that launches Music and picks up where you left off.
+- ▶️ **Reliable start-from-widget** — pressing play with Music closed (or
+  stopped with an empty queue) now launches Music and keeps nudging it until
+  playback actually starts; the gallery widget's buttons benefit too.
+- 🍺 **Homebrew install**: `brew install --cask aalemoro/tap/rota`.
+- 🌐 Project website: https://aalemoro.github.io/Rota/
+
 ## 2.2.0 — 2026-07-25
 
 Behaves like an official desktop widget now.

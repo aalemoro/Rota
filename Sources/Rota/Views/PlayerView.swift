@@ -76,6 +76,77 @@ struct PlayerView: View {
     }
 }
 
+// MARK: - Ghost mode (Music closed, last cover on screen)
+
+struct GhostPlayerView: View {
+
+    @EnvironmentObject var store: PlayerStore
+    var hovering: Bool
+    var mode: WidgetSizeMode
+
+    var body: some View {
+        ZStack {
+            // Centre: one big resume button.
+            VStack(spacing: 8) {
+                Button {
+                    store.resumePlayback()
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(.ultraThinMaterial)
+                        Circle()
+                            .strokeBorder(Color.white.opacity(0.22), lineWidth: 0.5)
+                        if store.isResuming {
+                            ProgressView()
+                                .controlSize(.small)
+                                .tint(.white)
+                        } else {
+                            Image(systemName: "play.fill")
+                                .font(.system(size: mode == .small ? 18 : 24, weight: .bold))
+                                .foregroundStyle(.white)
+                                .offset(x: 1.5)
+                        }
+                    }
+                    .frame(width: mode == .small ? 46 : 58, height: mode == .small ? 46 : 58)
+                    .contentShape(Circle())
+                }
+                .buttonStyle(PressableStyle())
+                .help("Resume playback")
+
+                if mode != .small {
+                    Text(store.isResuming ? "Opening Music…" : "Resume")
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+            }
+
+            // Bottom: what will play.
+            if mode != .small {
+                VStack {
+                    Spacer()
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(store.snapshot.title.isEmpty ? store.ghostTitle : store.snapshot.title)
+                            .font(.system(size: mode == .large ? 15 : 13, weight: .bold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .lineLimit(1)
+                        Text(store.snapshot.artist.isEmpty ? store.ghostArtist : store.snapshot.artist)
+                            .font(.system(size: mode == .large ? 11.5 : 10.5))
+                            .foregroundStyle(.white.opacity(0.5))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, mode == .large ? 22 : 16)
+                    .padding(.bottom, mode == .large ? 16 : 12)
+                }
+            }
+        }
+        .shadow(color: .black.opacity(0.35), radius: 10, y: 2)
+        // At rest the cover stands alone, exactly like the live player.
+        .opacity(hovering || store.isResuming ? 1 : 0)
+        .allowsHitTesting(hovering || store.isResuming)
+    }
+}
+
 // MARK: - Favourite
 
 struct FavoriteButton: View {
