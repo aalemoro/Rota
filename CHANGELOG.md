@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.3.0 (App Store build) — 2026-08-04
+
+- 🎨 **New app icon** — a pixel-art eighth note, black on white with a single
+  accent pixel. The source is `design/logo.svg`; `design/gen_icon.py`
+  regenerates the whole macOS iconset and `design/logo.png`.
+- 👋 **Welcome window** — the widget lives behind every window, so a first
+  launch used to look like nothing happened. Rota now opens a small welcome
+  screen on first run (and whenever you reopen it, or via `rota://welcome`),
+  and lifts the widget above everything for a few seconds so you can see
+  where it is.
+- 🏬 **Mac App Store packaging** — `scripts/mas_package.sh` builds, signs
+  (sandbox entitlements + App Group) and produces a signed `.pkg` ready for
+  Transporter; the build number (`BUILD` in the Makefile, `CFBundleVersion`)
+  is now separate from the marketing version.
+
 ## 2.3.0 — 2026-07-25
 
 - 👻 **Ghost mode** — with Music closed, the widget keeps showing the last

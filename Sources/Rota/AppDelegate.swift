@@ -34,13 +34,15 @@ enum WidgetSize: String, CaseIterable {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     static private(set) var shared: AppDelegate!
 
     let store = PlayerStore()
 
     private var panel: RotaPanel!
+    private var welcomeWindow: NSWindow?
+    private var revealWork: DispatchWorkItem?
     private var cancellables = Set<AnyCancellable>()
     private var snapWork: DispatchWorkItem?
     private var suppressSnap = false
@@ -68,8 +70,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.panel?.isMovableByWindowBackground = !locked
         }
 
+        UserDefaults.standard.register(defaults: ["showWelcomeAtLaunch": true])
+
+        setUpMainMenu()
         setUpPanel()
         store.start()
+
+        // Rota's widget lives behind every window, so a silent launch looks
+        // like nothing happened. Greet the user the first time (and after,
+        // unless they opt out) — but never when macOS launches us at login.
+        let defaults = UserDefaults.standard
+        let firstRun = defaults.object(forKey: "didShowWelcome") == nil
+        if firstRun || (defaults.bool(forKey: "showWelcomeAtLaunch") && !launchedAtLogin) {
+            defaults.set(true, forKey: "didShowWelcome")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.showWelcome()
+            }
+        }
 
         // First run: register as a login item, so the widget is simply
         // *there* after every reboot, like a native desktop widget.
@@ -93,8 +110,88 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// running brings the widget back — the recovery path now that there is
     /// no menu bar icon.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showWidget()
+        revealWidget()
+        showWelcome()
         return false
+    }
+
+    /// True when launchd (the login item), rather than the user, started us.
+    private var launchedAtLogin: Bool {
+        (ProcessInfo.processInfo.environment["XPC_SERVICE_NAME"] ?? "0") != "0"
+    }
+
+    // MARK: - Welcome window
+
+    func showWelcome() {
+        if welcomeWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 520),
+                styleMask: [.titled, .closable, .fullSizeContentView],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Rota"
+            window.titlebarAppearsTransparent = true
+            window.isMovableByWindowBackground = true
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.contentView = NSHostingView(rootView: WelcomeView())
+            welcomeWindow = window
+        }
+        NSApp.setActivationPolicy(.regular)
+        welcomeWindow?.center()
+        welcomeWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === welcomeWindow else { return }
+        // Back to being a faceless desktop widget.
+        DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
+    }
+
+    /// Brings the widget above every window for a few seconds, so the user can
+    /// actually see where it is, then lets it sink back onto the desktop.
+    func revealWidget() {
+        guard let panel else { return }
+        panel.orderFrontRegardless()
+        store.pollNow()
+        guard !store.keepOnTop else { return }
+
+        revealWork?.cancel()
+        panel.level = .floating
+        panel.orderFrontRegardless()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.applyPlacement(floating: self.store.keepOnTop)
+        }
+        revealWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8, execute: work)
+    }
+
+    /// A minimal main menu, so the app behaves normally while the welcome
+    /// window is up (⌘Q, ⌘W, Edit shortcuts).
+    private func setUpMainMenu() {
+        guard NSApp.mainMenu == nil else { return }
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "About Rota", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide Rota", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit Rota", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+
+        let windowItem = NSMenuItem()
+        let windowMenu = NSMenu(title: "Window")
+        windowMenu.addItem(withTitle: "Close", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        windowItem.submenu = windowMenu
+        main.addItem(windowItem)
+
+        NSApp.mainMenu = main
     }
 
     // MARK: - rota:// URL scheme (scripting & automation)
@@ -108,6 +205,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         switch url.host?.lowercased() {
         case "show":
             showWidget()
+        case "welcome":
+            showWelcome()
         case "hide":
             hideWidget()
         case "toggle":

@@ -19,7 +19,12 @@ let package = Package(
         .executableTarget(
             name: "RotaWidgetExtension",
             dependencies: ["RotaKit"],
-            path: "Sources/RotaWidgetExtension"
+            path: "Sources/RotaWidgetExtension",
+            linkerSettings: [
+                // Le app extension devono avere NSExtensionMain come entry point
+                // (Xcode lo passa automaticamente; con SwiftPM va dichiarato qui).
+                .unsafeFlags(["-Xlinker", "-e", "-Xlinker", "_NSExtensionMain"])
+            ]
         )
     ]
 )

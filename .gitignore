@@ -19,3 +19,6 @@ DerivedData/
 __pycache__/
 design/preview_strip.png
 design/logo_1024.png
+
+# Mac App Store signing material (provisioning profiles stay local)
+profiles/

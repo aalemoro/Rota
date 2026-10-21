@@ -1,6 +1,8 @@
 APP_NAME    = Rota
 WIDGET_NAME = RotaWidgetExtension
 VERSION     = 2.3.0
+# CFBundleVersion: incrementare a ogni upload su App Store Connect
+BUILD       = 2.3.5
 BUILD_DIR   = .build/release
 APP_DIR     = build/$(APP_NAME).app
 APPEX_DIR   = $(APP_DIR)/Contents/PlugIns/$(WIDGET_NAME).appex
@@ -29,8 +31,8 @@ app: build icon
 	@cp "$(BUILD_DIR)/$(WIDGET_NAME)" "$(APPEX_DIR)/Contents/MacOS/$(WIDGET_NAME)"
 	@cp build/AppIcon.icns "$(APP_DIR)/Contents/Resources/AppIcon.icns"
 	@cp build/AppIcon.icns "$(APPEX_DIR)/Contents/Resources/AppIcon.icns"
-	@sed -e "s/@VERSION@/$(VERSION)/g" scripts/Info.plist > "$(APP_DIR)/Contents/Info.plist"
-	@sed -e "s/@VERSION@/$(VERSION)/g" scripts/WidgetInfo.plist > "$(APPEX_DIR)/Contents/Info.plist"
+	@sed -e "s/@VERSION@/$(VERSION)/g" -e "s/@BUILD@/$(BUILD)/g" scripts/Info.plist > "$(APP_DIR)/Contents/Info.plist"
+	@sed -e "s/@VERSION@/$(VERSION)/g" -e "s/@BUILD@/$(BUILD)/g" scripts/WidgetInfo.plist > "$(APPEX_DIR)/Contents/Info.plist"
 	@printf 'APPL????' > "$(APP_DIR)/Contents/PkgInfo"
 	@printf 'XPC!????' > "$(APPEX_DIR)/Contents/PkgInfo"
 	@codesign --force --sign - --entitlements scripts/widget.entitlements "$(APPEX_DIR)"
